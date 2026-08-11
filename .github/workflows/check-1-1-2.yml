@@ -8,6 +8,15 @@ on:
         required: false
         type: string
         default: "112-blink"
+      lms_url:
+        description: Приёмник результатов на платформе; пустой — отправка выключена
+        required: false
+        type: string
+        default: "https://es.ant-lab.ru/api/results/"
+    secrets:
+      CHECKS_TOKEN:
+        description: Токен приёмника платформы
+        required: false
 
 jobs:
   check:
@@ -30,3 +39,28 @@ jobs:
 
       - name: Проверка
         run: es-test/checks/check-1-1-2.sh student "${{ inputs.project }}"
+        env:
+          CHECKS_JSON: ${{ runner.temp }}/report.json
+
+      - name: Отправка результата на платформу
+        if: always()
+        env:
+          LMS_URL: ${{ inputs.lms_url }}
+          CHECKS_TOKEN: ${{ secrets.CHECKS_TOKEN }}
+          REPORT: ${{ runner.temp }}/report.json
+        run: |
+          if [ -z "$LMS_URL" ] || [ -z "$CHECKS_TOKEN" ]; then
+            echo "Приёмник или токен не заданы — отправка пропущена."
+            exit 0
+          fi
+          if [ ! -f "$REPORT" ]; then
+            echo "Отчёт не сформирован — отправлять нечего."
+            exit 0
+          fi
+          code=$(curl -sS -o response.txt -w '%{http_code}' -X POST "$LMS_URL" \
+            -H "Authorization: Bearer $CHECKS_TOKEN" \
+            -H 'Content-Type: application/json' \
+            --data @"$REPORT")
+          echo "Ответ платформы: $code"
+          cat response.txt; echo
+          [ "$code" = "200" ]
