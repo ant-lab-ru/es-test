@@ -1,0 +1,30 @@
+name: Проверка 1.1.4 Создание репозитория курса
+
+on:
+  workflow_call:
+    inputs:
+      project:
+        description: Папка проекта в репозитории обучающегося
+        required: false
+        type: string
+        default: "112-blink"
+
+jobs:
+  check:
+    name: Создание репозитория курса
+    runs-on: ubuntu-latest
+    steps:
+      - name: Репозиторий обучающегося
+        uses: actions/checkout@v4
+        with:
+          path: student
+          fetch-depth: 0
+
+      - name: Проверки курса
+        uses: actions/checkout@v4
+        with:
+          repository: ant-lab-ru/es-test
+          path: es-test
+
+      - name: Проверка
+        run: es-test/checks/check-1-1-4.sh student "${{ inputs.project }}"

@@ -1,0 +1,55 @@
+name: Инструменты сборки RP2040
+description: Ставит ARM GCC и CMake, разворачивает Pico SDK и picotool, задаёт переменные среды.
+
+inputs:
+  sdk-version:
+    description: Версия Pico SDK и picotool
+    required: false
+    default: "2.3.0"
+
+runs:
+  using: composite
+  steps:
+    - name: Компилятор и система сборки
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          cmake build-essential gcc-arm-none-eabi libnewlib-arm-none-eabi \
+          libstdc++-arm-none-eabi-newlib libusb-1.0-0-dev pkg-config
+
+    - name: Кэш Pico SDK и picotool
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/pico/pico-sdk
+          ~/pico/picotool-install
+        key: pico-${{ inputs.sdk-version }}-${{ runner.os }}
+
+    - name: Загрузка Pico SDK
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        mkdir -p ~/pico
+        git clone --depth 1 --branch "${{ inputs.sdk-version }}" \
+          https://github.com/raspberrypi/pico-sdk.git ~/pico/pico-sdk
+        git -C ~/pico/pico-sdk submodule update --init --depth 1
+
+    - name: Сборка picotool
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        git clone --depth 1 --branch "${{ inputs.sdk-version }}" \
+          https://github.com/raspberrypi/picotool.git ~/pico/picotool
+        cmake -S ~/pico/picotool -B ~/pico/picotool/build \
+          -DPICO_SDK_PATH="$HOME/pico/pico-sdk" \
+          -DCMAKE_INSTALL_PREFIX="$HOME/pico/picotool-install"
+        cmake --build ~/pico/picotool/build --parallel
+        cmake --install ~/pico/picotool/build
+
+    - name: Переменные среды
+      shell: bash
+      run: |
+        echo "PICO_SDK_PATH=$HOME/pico/pico-sdk" >> "$GITHUB_ENV"
+        echo "picotool_DIR=$HOME/pico/picotool-install/lib/cmake/picotool" >> "$GITHUB_ENV"

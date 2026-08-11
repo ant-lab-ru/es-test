@@ -1,0 +1,23 @@
+name: Проверка 1.1.1 Установка инструментов
+
+on:
+  workflow_call:
+
+jobs:
+  check:
+    name: Установка инструментов
+    runs-on: ubuntu-latest
+    steps:
+      - name: Репозиторий обучающегося
+        uses: actions/checkout@v4
+        with:
+          path: student
+
+      - name: Проверки курса
+        uses: actions/checkout@v4
+        with:
+          repository: ant-lab-ru/es-test
+          path: es-test
+
+      - name: Проверка
+        run: es-test/checks/check-1-1-1.sh student
