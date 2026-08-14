@@ -26,6 +26,13 @@ if [ -f "$IGNORE" ]; then
 		".gitignore: директория build исключена" ".gitignore: не исключена директория build"
 	match "$IGNORE" '(^|/)\.vscode/?[[:space:]]*$' \
 		".gitignore: директория .vscode исключена" ".gitignore: не исключена директория .vscode"
+	# .DS_Store заводит только macOS, поэтому его отсутствие в .gitignore — не ошибка.
+	if grep -Eq '(^|/)\.DS_Store[[:space:]]*$' "$IGNORE"; then
+		ok ".gitignore: служебный файл .DS_Store исключён"
+	else
+		warn ".gitignore: не исключён служебный файл .DS_Store"
+		note "Нужно тем, кто работает в macOS: Finder заводит этот файл в каждой открытой папке."
+	fi
 else
 	fail "В корне репозитория нет файла .gitignore"
 fi
@@ -49,11 +56,11 @@ else
 	fail "В репозитории нет файла tools.log из задания П1.1.1"
 fi
 
-WORKFLOWS="$(echo "$TRACKED" | grep -c '^\.github/workflows/.*\.ya\?ml$' || true)"
-if [ "$WORKFLOWS" -gt 0 ]; then
-	ok "Файлы проверок в .github/workflows выгружены ($WORKFLOWS шт.)"
+if echo "$TRACKED" | grep -q '^git\.log$'; then
+	warn "В репозиторий выгружен файл git.log"
+	note "Он нужен только для самопроверки на машине обучающегося и остаётся в папке pico."
 else
-	fail "В репозитории нет файлов проверок в .github/workflows"
+	ok "Файла git.log в репозитории нет"
 fi
 
 COUNT="$(echo "$TRACKED" | grep -c "^$PROJECT/" || true)"

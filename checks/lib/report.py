@@ -3,6 +3,7 @@
 
 Вызывается из report.sh при заданной переменной CHECKS_JSON. Пункты проверки берутся
 из файла с строками вида «ok<TAB>текст», остальное — из окружения GitHub Actions.
+Статус пункта — «ok», «fail» или «warn»; замечания не влияют на итог задания.
 """
 
 import argparse
@@ -18,6 +19,7 @@ def main():
     p.add_argument('--title', required=True)      # Задание 1.1.3 — Запуск прошивки
     p.add_argument('--passed', type=int, required=True)
     p.add_argument('--total', type=int, required=True)
+    p.add_argument('--warned', type=int, default=0)
     p.add_argument('--items', required=True)      # файл с пунктами
     args = p.parse_args()
 
@@ -27,7 +29,11 @@ def main():
             for line in f:
                 status, _, text = line.rstrip('\n').partition('\t')
                 if text:
-                    items.append({'ok': status == 'ok', 'text': text})
+                    items.append({
+                        'ok': status == 'ok',
+                        'status': status,
+                        'text': text,
+                    })
 
     repo = os.environ.get('GITHUB_REPOSITORY', '')
     server = os.environ.get('GITHUB_SERVER_URL', 'https://github.com')
@@ -41,6 +47,7 @@ def main():
         'status': 'ok' if args.passed == args.total else 'failed',
         'passed': args.passed,
         'total': args.total,
+        'warned': args.warned,
         'items': items,
         'commit': os.environ.get('GITHUB_SHA', ''),
         'run_url': f'{server}/{repo}/actions/runs/{run_id}' if repo and run_id else '',

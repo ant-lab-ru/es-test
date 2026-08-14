@@ -7,5 +7,3 @@ on:
 jobs:
   check:
     uses: ant-lab-ru/es-test/.github/workflows/check-1-1-4.yml@master
-    # Токен приёмника результатов передаётся из секретов репозитория.
-    secrets: inherit

@@ -2,13 +2,8 @@ name: 1.1.3 Запуск прошивки
 
 on:
   push:
-    paths:
-      - "112-blink/**"
-      - ".github/workflows/check-1-1-3.yml"
   workflow_dispatch:
 
 jobs:
   check:
     uses: ant-lab-ru/es-test/.github/workflows/check-1-1-3.yml@master
-    # Токен приёмника результатов передаётся из секретов репозитория.
-    secrets: inherit

@@ -83,7 +83,7 @@ if [ -f "$CMAKE" ]; then
 	match "$CMAKE" 'target_link_libraries[[:space:]]*\([^)]*pico_stdlib' \
 		"CMakeLists.txt: подключена библиотека pico_stdlib" "CMakeLists.txt: цель не связана с pico_stdlib"
 	match "$CMAKE" 'pico_set_linker_script[[:space:]]*\([^)]*memmap_rp2040\.ld' \
-		"CMakeLists.txt: указан линкер-скрипт memmap_rp2040.ld" "CMakeLists.txt: не указан линкер-скрипт memmap_rp2040.ld"
+		"CMakeLists.txt: указан скрипт компоновщика memmap_rp2040.ld" "CMakeLists.txt: не указан скрипт компоновщика memmap_rp2040.ld"
 	match "$CMAKE" 'pico_add_extra_outputs[[:space:]]*\(' \
 		"CMakeLists.txt: добавлена генерация форматов прошивки" "CMakeLists.txt: нет вызова pico_add_extra_outputs"
 fi

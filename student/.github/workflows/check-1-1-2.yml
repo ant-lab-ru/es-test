@@ -2,13 +2,8 @@ name: 1.1.2 Первый проект
 
 on:
   push:
-    paths:
-      - "112-blink/**"
-      - ".github/workflows/check-1-1-2.yml"
   workflow_dispatch:
 
 jobs:
   check:
     uses: ant-lab-ru/es-test/.github/workflows/check-1-1-2.yml@master
-    # Токен приёмника результатов передаётся из секретов репозитория.
-    secrets: inherit
