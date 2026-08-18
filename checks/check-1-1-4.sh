@@ -22,6 +22,7 @@ TRACKED="$(git -C "$REPO" ls-files)"
 IGNORE="$REPO/.gitignore"
 if [ -f "$IGNORE" ]; then
 	ok "Файл .gitignore на месте"
+	IGNORE="$(normalize "$IGNORE")"
 	match "$IGNORE" '(^|/)build/?[[:space:]]*$' \
 		".gitignore: директория build исключена" ".gitignore: не исключена директория build"
 	match "$IGNORE" '(^|/)\.vscode/?[[:space:]]*$' \

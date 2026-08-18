@@ -48,7 +48,7 @@ fi
 flatten() {
 	local out
 	out="$(mktemp)"
-	tr '\n' ' ' < "$1" > "$out"
+	tr '\n' ' ' < "$(normalize "$1")" > "$out"
 	echo "$out"
 }
 

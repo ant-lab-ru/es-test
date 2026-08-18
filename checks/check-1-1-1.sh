@@ -11,9 +11,22 @@ TITLE="Задание 1.1.1 — Установка инструментов"
 REPO="${1:-.}"
 LOG="$REPO/tools.log"
 
-# Версия picotool не свободная: она обязана совпадать с версией Pico SDK, на которой идёт курс.
-# При смене версии SDK правится здесь и в карточках инструментов es-book.
-PICOTOOL_VERSION="2.3.0"
+# Версии Pico SDK и picotool не свободные: курс идёт на одной версии, и они обязаны
+# совпадать между собой. При смене версии правится здесь, в карточках инструментов
+# es-book и в .github/actions/pico-toolchain.
+COURSE_VERSION="2.3.0"
+
+# pinned <образец начала строки> <название> — версия записана и равна версии курса.
+pinned() {
+	if ! grep -Eq "^$1 v?[0-9]+\.[0-9]+" "$LOG"; then
+		fail "$2: в tools.log нет строки с версией"
+	elif grep -Eq "^$1 v?${COURSE_VERSION//./\\.}([^0-9]|\$)" "$LOG"; then
+		ok "$2: версия $COURSE_VERSION"
+	else
+		fail "$2: нужна версия $COURSE_VERSION, в tools.log записана другая"
+		note "Pico SDK и picotool закреплены версией курса и обязаны совпадать, иначе конфигурация сборки прервётся."
+	fi
+}
 
 if [ ! -f "$LOG" ]; then
 	fail "В корне репозитория нет файла tools.log"
@@ -23,6 +36,8 @@ if [ ! -f "$LOG" ]; then
 fi
 ok "Файл tools.log найден"
 
+LOG="$(normalize "$LOG")"
+
 match "$LOG" '^git version [0-9]+\.[0-9]+' \
 	"git: версия записана" "git: в tools.log нет строки с версией"
 match "$LOG" '^cmake version [0-9]+\.[0-9]+' \
@@ -31,14 +46,8 @@ match "$LOG" 'GNU Make [0-9]+\.[0-9]+' \
 	"GNU Make: версия записана" "GNU Make: в tools.log нет строки с версией"
 match "$LOG" 'arm-none-eabi-gcc.*\)[[:space:]]+[0-9]+\.[0-9]+' \
 	"ARM GCC: версия записана" "ARM GCC: в tools.log нет строки с версией"
-if ! grep -Eq 'picotool v?[0-9]+\.[0-9]+' "$LOG"; then
-	fail "picotool: в tools.log нет строки с версией"
-elif grep -Eq "picotool v?${PICOTOOL_VERSION//./\\.}([^0-9]|\$)" "$LOG"; then
-	ok "picotool: версия $PICOTOOL_VERSION"
-else
-	fail "picotool: нужна версия $PICOTOOL_VERSION, в tools.log записана другая"
-	note "Версия picotool обязана совпадать с версией Pico SDK, иначе конфигурация сборки прервётся."
-fi
+pinned 'picotool' "picotool"
+pinned 'pico-sdk' "Pico SDK"
 match "$LOG" '^code [0-9]+\.[0-9]+\.[0-9]+' \
 	"Visual Studio Code: версия записана" "Visual Studio Code: в tools.log нет строки с версией"
 match "$LOG" 'Python [0-9]+\.[0-9]+' \
