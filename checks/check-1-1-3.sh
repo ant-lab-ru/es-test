@@ -23,6 +23,15 @@ if [ -z "${PICO_SDK_PATH:-}" ]; then
 	exit 1
 fi
 
+# В Windows make исполняет рецепты через sh, как только видит его в PATH — а в Git Bash
+# он там всегда. Себя в рекурсивный вызов make подставляет полным путём и без кавычек,
+# поэтому установка по умолчанию, «C:\Program Files (x86)\GnuWin32\bin», разваливает
+# команду на скобках. Возврат к cmd.exe снимает это; в остальных системах переменная пуста.
+MAKE_SHELL=""
+case "$(uname -s)" in
+	MINGW*|MSYS*|CYGWIN*) MAKE_SHELL="SHELL=cmd.exe" ;;
+esac
+
 BUILD="$(mktemp -d)"
 if cmake -S "$SRC" -B "$BUILD" -G "Unix Makefiles" > "$BUILD/cmake.log" 2>&1; then
 	ok "Конфигурация сборки завершается без ошибок"
@@ -34,7 +43,7 @@ else
 	exit 1
 fi
 
-if make -C "$BUILD" --no-print-directory > "$BUILD/make.log" 2>&1; then
+if make -C "$BUILD" --no-print-directory $MAKE_SHELL > "$BUILD/make.log" 2>&1; then
 	ok "Сборка проходит без ошибок"
 else
 	fail "Сборка завершается с ошибкой"
