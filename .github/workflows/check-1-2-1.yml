@@ -1,0 +1,66 @@
+name: Проверка 1.2.1 Мигание светодиодом через регистр
+
+on:
+  workflow_call:
+    inputs:
+      project:
+        description: Папка проекта в репозитории обучающегося
+        required: false
+        type: string
+        default: "121-blink-reg"
+      lms_url:
+        description: Приёмник результатов на платформе; пустой — отправка выключена
+        required: false
+        type: string
+        default: "https://es.ant-lab.ru/api/results/"
+    secrets:
+      ES_ACCOUNT_SECRET:
+        description: Личный секрет обучающегося — по нему кабинет узнаёт, чей это отчёт
+        required: false
+
+jobs:
+  check:
+    name: Мигание светодиодом через регистр
+    runs-on: ubuntu-latest
+    steps:
+      - name: Репозиторий обучающегося
+        uses: actions/checkout@v7
+        with:
+          path: student
+
+      - name: Проверки курса
+        uses: actions/checkout@v7
+        with:
+          repository: ant-lab-ru/es-test
+          path: es-test
+
+      - name: Инструменты сборки
+        uses: ant-lab-ru/es-test/.github/actions/pico-toolchain@master
+
+      - name: Проверка
+        run: es-test/checks/check-1-2-1.sh student "${{ inputs.project }}"
+        env:
+          CHECKS_JSON: ${{ runner.temp }}/report.json
+
+      - name: Отправка результата на платформу
+        if: always()
+        env:
+          LMS_URL: ${{ inputs.lms_url }}
+          ES_ACCOUNT_SECRET: ${{ secrets.ES_ACCOUNT_SECRET }}
+          REPORT: ${{ runner.temp }}/report.json
+        run: |
+          if [ -z "$LMS_URL" ] || [ -z "$ES_ACCOUNT_SECRET" ]; then
+            echo "Приёмник или секрет не заданы — отправка пропущена."
+            exit 0
+          fi
+          if [ ! -f "$REPORT" ]; then
+            echo "Отчёт не сформирован — отправлять нечего."
+            exit 0
+          fi
+          code=$(curl -sS -o response.txt -w '%{http_code}' -X POST "$LMS_URL" \
+            -H "Authorization: Bearer $ES_ACCOUNT_SECRET" \
+            -H 'Content-Type: application/json' \
+            --data @"$REPORT")
+          echo "Ответ платформы: $code"
+          cat response.txt; echo
+          [ "$code" = "200" ]
