@@ -102,7 +102,7 @@ echo $PICO_SDK_PATH
 
 ## Что где лежит
 
-- [checks/](checks/) — скрипты проверок, общий отчёт `lib/report.sh` и сборка проекта `lib/build.sh`.
+- [checks/](checks/) — скрипты проверок, общий отчёт `lib/report.sh`, сборка проекта `lib/build.sh` и имя проекта в описании сборки `lib/cmake.sh`.
 - [.github/workflows/](.github/workflows/) — тело проверок, вызываемое из вашего репозитория.
 - [.github/actions/pico-toolchain/](.github/actions/pico-toolchain/) — установка ARM GCC, Pico SDK и picotool на машине проверки.
 - [student/.github/workflows/](student/.github/workflows/) — файлы, которые вы копируете к себе в репозиторий es-student.

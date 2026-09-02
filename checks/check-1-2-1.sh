@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Задание п1.2.1 «Мигание светодиодом через регистр».
-# Состав проекта, отсутствие gpio_put, обращение к регистрам SIO, сборка.
+# Состав проекта, отсутствие gpio_put, обращение к регистрам SIO, имя проекта, сборка.
 # Мигание светодиода в CI не проверяется.
 # Использование: check-1-2-1.sh <путь к репозиторию> [папка проекта]
 set -u
@@ -8,6 +8,7 @@ set -u
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
 . "$LIB/build.sh"
+. "$LIB/cmake.sh"
 
 TITLE="Задание 1.2.1 — Мигание светодиодом через регистр"
 REPO="${1:-.}"
@@ -69,6 +70,8 @@ if [ -f "$MAIN" ]; then
 	match "$MAIN" 'while[[:space:]]*\([[:space:]]*(1|true)[[:space:]]*\)|for[[:space:]]*\([[:space:]]*;[[:space:]]*;[[:space:]]*\)' \
 		"main.c: есть бесконечный цикл" "main.c: нет бесконечного цикла — функция main завершится"
 fi
+
+check_project_name "$SRC" "$PROJECT"
 
 build_project "$SRC"
 
