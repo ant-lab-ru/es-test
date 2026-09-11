@@ -7,7 +7,7 @@ on:
         description: Папка проекта в репозитории обучающегося
         required: false
         type: string
-        default: "132-led-button-usb"
+        default: "133-led-button-usb"
       lms_url:
         description: Приёмник результатов на платформе; пустой — отправка выключена
         required: false

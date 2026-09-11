@@ -13,7 +13,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 
 TITLE="Задание 1.3.3 — Вывод состояния светодиода"
 REPO="${1:-.}"
-PROJECT="${2:-132-led-button-usb}"
+PROJECT="${2:-133-led-button-usb}"
 SRC="$REPO/$PROJECT"
 
 if [ ! -d "$SRC" ]; then
