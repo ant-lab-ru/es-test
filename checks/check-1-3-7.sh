@@ -78,8 +78,8 @@ LOGC="$SRC/logging/log.c"
 if [ -f "$LOGC" ]; then
 	LOGC="$(normalize "$LOGC")"
 	match "$LOGC" 'device_info[[:space:]]*\(' \
-		"log.c: шапка запуска печатает паспорт вызовом device_info()" \
-		"log.c: log_init() по-прежнему печатает название и версию сам"
+		"log.c: строка версии печатает паспорт вызовом device_info()" \
+		"log.c: log_version() по-прежнему печатает название и версию сам"
 fi
 
 MAIN="$SRC/main.c"
@@ -157,5 +157,5 @@ check_project_name "$SRC" "$PROJECT"
 
 build_project "$SRC"
 
-note "Совпадение паспорта при запуске и по команде i человек смотрит на плате."
+note "Совпадение паспорта по командам v и i человек смотрит на плате."
 finish "$TITLE"

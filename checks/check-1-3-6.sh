@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Задание п1.3.6 «Макросы логирования».
-# Модуль logging, макросы уровней, шапка запуска и перевод вывода проекта на них.
+# Модуль logging, макросы уровней, строка версии по команде v и перевод вывода проекта на них.
 # Использование: check-1-3-6.sh <путь к репозиторию> [папка проекта]
 set -u
 
@@ -60,9 +60,11 @@ BODY="$SRC/logging/log.c"
 if [ -f "$BODY" ]; then
 	BODY="$(normalize "$BODY")"
 	match "$BODY" '__DATE__' \
-		"log.c: в шапке запуска печатается дата сборки" "log.c: нет __DATE__"
+		"log.c: в строке версии печатается дата сборки" "log.c: нет __DATE__"
 	match "$BODY" '__TIME__' \
-		"log.c: в шапке запуска печатается время сборки" "log.c: нет __TIME__"
+		"log.c: в строке версии печатается время сборки" "log.c: нет __TIME__"
+	match "$BODY" 'log_version[[:space:]]*\(' \
+		"log.c: написана функция log_version" "log.c: нет функции log_version"
 	match "$BODY" 'log_prefix[[:space:]]*\(' \
 		"log.c: написана функция log_prefix" "log.c: нет функции log_prefix"
 fi
@@ -73,9 +75,12 @@ if [ -f "$MAIN" ]; then
 	match "$MAIN" '#include[[:space:]]*"log\.h"' \
 		"main.c: подключён заголовочный файл модуля журнала" \
 		"main.c: нет #include \"log.h\""
-	match "$MAIN" 'log_init[[:space:]]*\(' \
-		"main.c: шапка запуска печатается вызовом log_init" \
-		"main.c: нет вызова log_init"
+	match "$MAIN" 'log_version[[:space:]]*\(' \
+		"main.c: строка версии печатается вызовом log_version" \
+		"main.c: нет вызова log_version"
+	match "$MAIN" "'v'" \
+		"main.c: команда v разобрана" \
+		"main.c: нет разбора команды v — версию не спросить"
 	match "$MAIN" 'LOG_(ERR|INF|DBG)[[:space:]]*\(' \
 		"main.c: сообщения выводятся макросами журнала" \
 		"main.c: нет ни одного вызова LOG_ERR, LOG_INF или LOG_DBG"
@@ -105,5 +110,5 @@ fi
 
 build_project "$SRC"
 
-note "Разницу вывода и размера .bin при разных LOG_LEVEL смотрит человек на плате."
+note "Разницу вывода при разных LOG_LEVEL смотрит человек на плате."
 finish "$TITLE"
