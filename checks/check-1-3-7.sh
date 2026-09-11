@@ -77,9 +77,9 @@ fi
 LOGC="$SRC/logging/log.c"
 if [ -f "$LOGC" ]; then
 	LOGC="$(normalize "$LOGC")"
-	match "$LOGC" 'device_info[[:space:]]*\(' \
-		"log.c: строка версии печатает паспорт вызовом device_info()" \
-		"log.c: log_version() по-прежнему печатает название и версию сам"
+	match "$LOGC" '#include[[:space:]]*"device\.h"' \
+		"log.c: имя и версия берутся из device.h" \
+		"log.c: нет #include \"device.h\" — имя и версия должны переехать в паспорт"
 fi
 
 MAIN="$SRC/main.c"
@@ -157,5 +157,5 @@ check_project_name "$SRC" "$PROJECT"
 
 build_project "$SRC"
 
-note "Совпадение паспорта по командам v и i человек смотрит на плате."
+note "Ответы на команды v и i человек смотрит на плате."
 finish "$TITLE"

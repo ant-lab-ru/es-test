@@ -8,6 +8,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
 . "$LIB/build.sh"
 . "$LIB/cmake.sh"
+. "$LIB/device.sh"
 
 TITLE="Задание 1.3.6 — Макросы логирования"
 REPO="${1:-.}"
@@ -21,7 +22,7 @@ if [ ! -d "$SRC" ]; then
 fi
 ok "Папка проекта $PROJECT найдена"
 
-for f in logging/log.h logging/log.c; do
+for f in logging/log.h logging/log.c check-1-3-6.py device-1-3-6.log; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
@@ -105,6 +106,44 @@ if [ -f "$CMAKE" ]; then
 		ok "CMakeLists.txt: папка logging добавлена в пути поиска заголовочных файлов"
 	else
 		fail "CMakeLists.txt: папки logging нет в target_include_directories"
+	fi
+fi
+
+if device_log "$SRC/device-1-3-6.log" "1.3.6"; then
+	RECEIVED="$(device_received "$DEVICE_LOG")"
+
+	if device_sent "$DEVICE_LOG" | grep -q '^v$'; then
+		ok "Скрипт спросил у платы версию командой v"
+	else
+		fail "В логе нет отправленной команды v"
+	fi
+
+	if echo "$RECEIVED" | grep -Eq 'built .+log level [0-9]+'; then
+		ok "Плата ответила строкой версии с датой сборки и уровнем журнала"
+	else
+		fail "В логе нет строки версии"
+		note "По команде v прошивка печатает имя, версию, дату и время сборки и текущий уровень."
+	fi
+
+	SIGNED="$(echo "$RECEIVED" | grep -Ec '^(err|inf|dbg) [A-Za-z_][A-Za-z0-9_]*:[0-9]+ ')"
+	if [ "$SIGNED" -ge 2 ]; then
+		ok "Сообщения журнала подписаны уровнем, функцией и номером строки: таких строк $SIGNED"
+	else
+		fail "В логе нет подписанных сообщений журнала"
+		note "Каждое сообщение макроса начинается с уровня, имени функции и номера строки: inf main:57 led on."
+	fi
+
+	if echo "$RECEIVED" | grep -Eq '^inf [A-Za-z_][A-Za-z0-9_]*:[0-9]+ led (on|off)$'; then
+		ok "Состояние светодиода печатается уровнем inf"
+	else
+		fail "В логе нет сообщения о светодиоде с уровнем inf"
+	fi
+
+	if echo "$RECEIVED" | grep -Eq '^err [A-Za-z_][A-Za-z0-9_]*:[0-9]+ unknown command'; then
+		ok "Неизвестная команда печатается уровнем err"
+	else
+		fail "В логе нет сообщения о неизвестной команде с уровнем err"
+		note "Скрипт посылает символ q: прошивка должна сообщить об этом уровнем err."
 	fi
 fi
 
