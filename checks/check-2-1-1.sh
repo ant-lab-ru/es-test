@@ -60,15 +60,15 @@ if [ -f "$MAIN" ]; then
 		ok "main.c: команды сравниваются функцией strcmp"
 	else
 		fail "main.c: нет strcmp — строки нельзя сравнивать оператором =="
-		note "Имя массива — это адрес; line == \"on\" сравнит два адреса, а не текст."
+		note "Имя массива — это адрес; line == \"enable\" сравнит два адреса, а не текст."
 	fi
 
 	MISSING=""
-	for cmd in on off info help; do
+	for cmd in enable disable info version; do
 		grep -Eq "\"$cmd\"" "$MAIN" || MISSING="$MISSING $cmd"
 	done
 	if [ -z "$MISSING" ]; then
-		ok "main.c: разобраны команды on, off, info и help"
+		ok "main.c: разобраны команды enable, disable, info и version"
 	else
 		fail "main.c: не разобраны команды:$MISSING"
 	fi
@@ -106,7 +106,7 @@ if device_log "$SRC/device-2-1-1.log" "2.1.1"; then
 	RECEIVED="$(device_received "$DEVICE_LOG")"
 	SENT="$(device_sent "$DEVICE_LOG")"
 
-	for cmd in on off info; do
+	for cmd in enable disable info; do
 		if echo "$SENT" | grep -qx "$cmd"; then
 			ok "Скрипт отправил команду $cmd"
 		else
@@ -114,10 +114,10 @@ if device_log "$SRC/device-2-1-1.log" "2.1.1"; then
 		fi
 	done
 
-	if echo "$RECEIVED" | grep -Eq '^sdk: [0-9]+\.[0-9]+\.[0-9]+'; then
+	if echo "$RECEIVED" | grep -Eq '^pico-sdk: [0-9]+\.[0-9]+\.[0-9]+'; then
 		ok "Плата ответила на info строкой с версией Pico SDK"
 	else
-		fail "В логе нет строки sdk: с версией Pico SDK"
+		fail "В логе нет строки pico-sdk: с версией Pico SDK"
 	fi
 
 	if echo "$RECEIVED" | grep -Eq '^project: 211-command-usb'; then
