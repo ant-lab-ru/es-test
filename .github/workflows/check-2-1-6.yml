@@ -1,4 +1,4 @@
-name: Проверка 2.1.6 Память структуры
+name: Проверка 2.1.6 Чтение по адресу
 
 on:
   workflow_call:
@@ -20,7 +20,7 @@ on:
 
 jobs:
   check:
-    name: Память структуры
+    name: Чтение по адресу
     runs-on: ubuntu-latest
     steps:
       - name: Репозиторий обучающегося
