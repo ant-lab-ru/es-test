@@ -42,7 +42,7 @@ if [ -f "$BODY" ]; then
 	MISSING=""
 	for sym in __flash_binary_end __boot2_end__ __etext __data_start__ __data_end__ \
 		__bss_start__ __bss_end__ __HeapLimit __StackTop; do
-		grep -Eq "extern[[:space:]]+char[[:space:]]+$sym" "$BODY" || MISSING="$MISSING $sym"
+		grep -Eq "extern[[:space:]]+char[[:space:]]+$sym" "$BODY" || MISSING="$MISSING \`$sym\`"
 	done
 	if [ -z "$MISSING" ]; then
 		ok "memory.c: символы линкера объявлены через extern char"
@@ -271,7 +271,7 @@ if build_project "$SRC" && [ -n "${BUILD_ELF:-}" ] && [ -n "${DEVICE_LOG:-}" ]; 
 			local area="$1" field="$2" sym="$3" from_log from_elf
 			from_log="$(dec "$(area_field "$area" "$field")")"
 			from_elf="$(dec "$(symbol_addr "$sym")")"
-			[ -n "$from_log" ] && [ -n "$from_elf" ] && [ "$from_log" = "$from_elf" ] || DIFF="$DIFF $sym"
+			[ -n "$from_log" ] && [ -n "$from_elf" ] && [ "$from_log" = "$from_elf" ] || DIFF="$DIFF \`$sym\`"
 		}
 		compare image start __flash_binary_start
 		compare image end __flash_binary_end

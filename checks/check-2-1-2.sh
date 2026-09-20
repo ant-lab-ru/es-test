@@ -34,17 +34,23 @@ if [ -f "$MAIN" ]; then
 	MAIN="$(normalize "$MAIN")"
 	# Объявление типа и таблица занимают несколько строк, поэтому часть пунктов
 	# читается по файлу со схлопнутыми переводами строк.
-	FLAT="$(mktemp)"
-	tr '\n' ' ' < "$MAIN" > "$FLAT"
+	# Тип команды объявлен в main.c, а начиная с п2.1.4 переезжает в command.h:
+	# проверку типов ведём по обоим файлам, чтобы она не краснела на сданной работе.
+	TYPES="$(mktemp)"
+	cat "$MAIN" > "$TYPES"
+	[ -f "$SRC/command.h" ] && normalize "$SRC/command.h" | xargs cat >> "$TYPES"
 
-	match "$MAIN" 'typedef[[:space:]]+void[[:space:]]*\([[:space:]]*\*[[:space:]]*command_handler_t[[:space:]]*\)[[:space:]]*\([[:space:]]*void[[:space:]]*\)' \
-		"main.c: объявлен тип command_handler_t — указатель на функцию без аргументов" \
-		"main.c: нет typedef указателя на функцию command_handler_t"
+	FLAT="$(mktemp)"
+	tr '\n' ' ' < "$TYPES" > "$FLAT"
+
+	match "$TYPES" 'typedef[[:space:]]+void[[:space:]]*\([[:space:]]*\*[[:space:]]*command_handler_t[[:space:]]*\)[[:space:]]*\([[:space:]]*void[[:space:]]*\)' \
+		"Объявлен тип command_handler_t — указатель на функцию без аргументов" \
+		"Нет typedef указателя на функцию command_handler_t"
 
 	if grep -Eq 'struct[[:space:]]+command_t[[:space:]]*\{[^}]*name[^}]*handler[^}]*\}|struct[[:space:]]+command_t[[:space:]]*\{[^}]*handler[^}]*name[^}]*\}' "$FLAT"; then
-		ok "main.c: объявлен тип command_t с именем команды и её обработчиком"
+		ok "Объявлен тип command_t с именем команды и её обработчиком"
 	else
-		fail "main.c: нет типа command_t с полями имени и обработчика"
+		fail "Нет типа command_t с полями имени и обработчика"
 		note "Команда прибора — пара: слово, которое набирает человек, и функция, которая на него отвечает."
 	fi
 
@@ -129,7 +135,7 @@ if [ -f "$MAIN" ]; then
 		"main.c: на незнакомое слово прибор отвечает ошибкой" \
 		"main.c: нет сообщения о незнакомой команде"
 
-	rm -f "$FLAT"
+	rm -f "$FLAT" "$TYPES"
 fi
 
 # const в тексте программы — обещание; секция в собранном образе — его исполнение.
