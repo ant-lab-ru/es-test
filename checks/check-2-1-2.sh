@@ -73,14 +73,25 @@ if [ -f "$MAIN" ]; then
 
 	if [ -n "$HANDLERS" ]; then
 		MISSING=""
+		WRONG=""
 		for handler in $HANDLERS; do
-			grep -Eq "void[[:space:]]+$handler[[:space:]]*\([[:space:]]*void[[:space:]]*\)" "$MAIN" ||
+			if grep -Eq "void[[:space:]]+$handler[[:space:]]*\([[:space:]]*void[[:space:]]*\)" "$MAIN"; then
+				continue
+			elif grep -Eq "[A-Za-z_][A-Za-z0-9_]*[[:space:]]+$handler[[:space:]]*\(" "$MAIN"; then
+				WRONG="$WRONG $handler"
+			else
 				MISSING="$MISSING $handler"
+			fi
 		done
-		if [ -z "$MISSING" ]; then
+		if [ -z "$MISSING" ] && [ -z "$WRONG" ]; then
 			ok "main.c: у каждой команды таблицы своя функция-обработчик"
-		else
+		fi
+		if [ -n "$MISSING" ]; then
 			fail "main.c: в таблице названы обработчики, которых нет в файле:$MISSING"
+		fi
+		if [ -n "$WRONG" ]; then
+			fail "main.c: обработчики объявлены не как void f(void):$WRONG"
+			note "Пустые скобки — это не «без аргументов»: у такой функции другой тип, и в таблицу command_handler_t она попадает по недосмотру компилятора."
 		fi
 	else
 		fail "main.c: в таблице команд не видно пар «имя — обработчик»"
