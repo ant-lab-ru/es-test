@@ -132,7 +132,8 @@ if device_log "$SRC/device-2-1-6.log" "2.1.6"; then
 	RECEIVED="$(device_received "$DEVICE_LOG")"
 
 	# boot_info печатает подписи в два слова, поэтому значения достаются по имени строки.
-	field() { echo "$RECEIVED" | sed -n "s/^ *$1  *\([0-9][0-9a-fx]*\) *$/\1/p"; }
+	# Подпись от значения отделяют пробелы или табуляция — годится любое.
+	field() { echo "$RECEIVED" | sed -n "s/^[[:space:]]*$1[[:space:]]\{1,\}\([0-9][0-9a-fx]*\)[[:space:]]*$/\1/p"; }
 
 	CALLS="$(device_sent "$DEVICE_LOG" | grep -cx 'boot_info')"
 	if [ "$CALLS" -ge 3 ]; then

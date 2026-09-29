@@ -59,14 +59,17 @@ fi
 check_project_name "$SRC" "$PROJECT"
 
 if device_log "$SRC/device-1-3-4.log" "1.3.4"; then
+	# Каждой команде — все строки платы до следующей команды: нажатие кнопки во время
+	# прогона добавляет свою строку, и ответ на команду ищется среди них.
 	PAIRS="$(awk '
-		/-->/ { command = $3; next }
-		/<--/ { if (command != "") { print command, substr($0, index($0, "<-- ") + 4); command = "" } }
+		/-->/ { if (command != "") print command, replies; command = $3; replies = ""; next }
+		/<--/ { if (command != "") replies = replies "|" substr($0, index($0, "<-- ") + 4) }
+		END { if (command != "") print command, replies }
 	' "$DEVICE_LOG")"
 
 	BAD="$(echo "$PAIRS" | awk '
-		$1 == "e" && $0 !~ /led on$/ { bad++ }
-		$1 == "d" && $0 !~ /led off$/ { bad++ }
+		$1 == "e" && $0 !~ /led on(\||$)/ { bad++ }
+		$1 == "d" && $0 !~ /led off(\||$)/ { bad++ }
 		END { print bad + 0 }')"
 	SENT="$(device_sent "$DEVICE_LOG" | grep -c '^[ed]$')"
 
@@ -80,7 +83,7 @@ if device_log "$SRC/device-1-3-4.log" "1.3.4"; then
 		ok "На каждую команду плата ответила нужным состоянием"
 	else
 		fail "Ответы платы не совпадают с отправленными командами"
-		note "После e плата отвечает led on, после d — led off."
+		note "После e плата отвечает led on, после d — led off. Если лог снят старым скриптом и во время прогона нажималась кнопка — снимите его заново, не трогая кнопку."
 	fi
 
 	if echo "$PAIRS" | grep -q '^x .*unknown'; then

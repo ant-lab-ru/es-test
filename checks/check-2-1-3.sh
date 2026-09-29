@@ -48,7 +48,11 @@ if [ -f "$BODY" ]; then
 		ok "memory.c: символы линкера объявлены через extern char"
 	else
 		fail "memory.c: не объявлены символами линкера:$MISSING"
-		note "Символ объявляют как extern char и берут у него адрес — значения у него нет."
+		if grep -Eq 'extern[[:space:]]+char[[:space:]]+__' "$SRC/memory/memory.h" 2>/dev/null; then
+			note "Объявления нашлись в memory.h. Перенесите их в memory.c: символы линкера — внутреннее дело модуля памяти, а заголовок описывает только то, что модуль даёт наружу."
+		else
+			note "Символ объявляют как extern char и берут у него адрес — значения у него нет."
+		fi
 	fi
 
 	if grep -Eq '&__(etext|data_start__|bss_start__|bss_end__|StackTop|StackBottom|HeapLimit|flash_binary_start|flash_binary_end|boot2_end__)' "$BODY"; then
@@ -83,9 +87,12 @@ fi
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
 	MAIN="$(normalize "$MAIN")"
-	match "$MAIN" '#include[[:space:]]*"memory\.h"' \
-		"main.c: подключён заголовочный файл модуля памяти" \
-		"main.c: нет #include \"memory.h\""
+	if grep -Eq '#include[[:space:]]*"memory\.h"' "$MAIN"; then
+		ok "main.c: подключён заголовочный файл модуля памяти"
+	else
+		fail "main.c: нет #include \"memory.h\""
+		note "Обработчик команды вызывает mem_info(), а её объявление main.c берёт из заголовка модуля памяти."
+	fi
 	match "$MAIN" '"mem_info"' \
 		"main.c: команда mem_info есть в таблице команд" \
 		"main.c: в таблице команд нет mem_info"

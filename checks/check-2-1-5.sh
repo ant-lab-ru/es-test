@@ -160,8 +160,10 @@ if device_log "$SRC/device-2-1-5.log" "2.1.5"; then
 	BLOCK="$(echo "$RECEIVED" | awk '/^struct[[:space:]]+address/ {on = 1; next} on && /^fields / {exit} on {print}')"
 	SUMMARY="$(echo "$RECEIVED" | grep -E '^fields [0-9]+, sizeof [0-9]+, padding [0-9]+' | head -1)"
 
-	STRUCT_ADDR="$(echo "$BLOCK" | awk '$1 == "device_card" && $2 ~ /^0x[0-9a-f]+$/ {print $2; exit}')"
-	LOG_SIZE="$(echo "$BLOCK" | awk '$1 == "device_card" && $2 ~ /^0x[0-9a-f]+$/ {print $3; exit}')"
+	# Строку структуры принимаем и с дефисом впереди, как у полей.
+	STRUCT_LINE="$(echo "$BLOCK" | sed 's/^-[[:space:]]*device_card/device_card/' | awk '$1 == "device_card" && $2 ~ /^0x[0-9a-f]+$/ {print; exit}')"
+	STRUCT_ADDR="$(echo "$STRUCT_LINE" | awk '{print $2}')"
+	LOG_SIZE="$(echo "$STRUCT_LINE" | awk '{print $3}')"
 	FIELDS="$(echo "$BLOCK" | awk 'NF >= 5 && $1 == "-" && $3 ~ /^0x[0-9a-f]+$/ {print $2, $3, $4, $5}')"
 	FIELD_COUNT="$(echo "$FIELDS" | grep -c .)"
 
@@ -190,7 +192,8 @@ if device_log "$SRC/device-2-1-5.log" "2.1.5"; then
 			note "Адрес поля — это адрес структуры плюс offsetof: сверьте, что печатается именно он."
 		fi
 
-		GAPS="$(echo "$FIELDS" | awk '
+		# Разрывы ищутся в порядке смещений: печатать поля можно в любом порядке.
+		GAPS="$(echo "$FIELDS" | sort -n -k4 | awk '
 			NR > 1 && ($4 + 0) != prev { print $1 }
 			{ prev = $4 + $3 }')"
 		if [ -z "$GAPS" ]; then
