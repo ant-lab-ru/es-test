@@ -19,6 +19,7 @@ SOURCES="stdio-text-protocol.c systime.c profiling.c device.c log.c button.c"
 
 if [ ! -d "$FW_LIBS" ]; then
 	fail "В корне репозитория нет папки libs"
+	note "libs/ лежит рядом с папками проектов, а не внутри проекта."
 	finish "$TITLE"
 	exit 1
 fi
@@ -34,22 +35,27 @@ if [ -f "$FW_LIBS/CMakeLists.txt" ]; then
 		ok "libs/CMakeLists.txt: к сборке добавлены все шесть библиотек"
 	else
 		fail "libs/CMakeLists.txt: нет add_subdirectory() для:$MISSING"
+		note "libs/CMakeLists.txt добавляет каждую библиотеку строкой add_subdirectory(<имя>)."
 	fi
 else
 	fail "Нет файла libs/CMakeLists.txt"
+	note "Он добавляет к сборке все библиотеки, по строке add_subdirectory() на каждую."
 fi
 
 for name in $LIBRARIES; do
 	DIR="$FW_LIBS/$name"
 	if [ ! -f "$DIR/CMakeLists.txt" ]; then
 		fail "libs/$name: нет CMakeLists.txt"
+		note "Каждая библиотека описывает свою сборку сама, образец — в шаге 1 задания п2.3.6."
 		continue
 	fi
 	FLAT="$(cmake_flatten "$DIR/CMakeLists.txt")"
 	if ! grep -Eq 'add_library[[:space:]]*\(' "$FLAT"; then
 		fail "libs/$name: в CMakeLists.txt нет add_library()"
+		note "Библиотеку объявляет add_library(<имя> STATIC src/...)."
 	elif ! ls "$DIR/include/$name/"*.h > /dev/null 2>&1 || ! ls "$DIR/src/"*.c > /dev/null 2>&1; then
 		fail "libs/$name: файлы не разложены по include/$name/ и src/"
+		note "Заголовок — в include/<имя>/, реализация — в src/."
 	else
 		ok "libs/$name: библиотека со своим CMakeLists.txt, include/$name/ и src/"
 	fi
@@ -86,6 +92,7 @@ if [ -z "$LEFT" ]; then
 	ok "В папке проекта не осталось исходников библиотек"
 else
 	fail "В папке проекта остались исходники библиотек:$LEFT"
+	note "Перенесите их в libs/ и подключайте библиотеки по именам."
 fi
 
 CMAKE="$FW_SRC/CMakeLists.txt"
@@ -116,6 +123,7 @@ if [ -n "$SYSTIME_H" ]; then
 		ok "systime.h: объявлены systime_us(), systime_ms() и systime_period_elapsed()"
 	else
 		fail "systime.h: нет объявлений:$MISSING"
+		note "Интерфейс systime дан в шаге 3 задания п2.3.6."
 	fi
 fi
 
@@ -130,6 +138,7 @@ if [ -f "$FW_SRC/firmware.h" ]; then
 	ok "Файл firmware.h с именем и версией прошивки в папке проекта"
 else
 	fail "В папке проекта нет firmware.h"
+	note "Константы прошивки переезжают из device.h в firmware.h в папке проекта."
 fi
 
 CODE="$(fw_project_code)"

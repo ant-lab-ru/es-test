@@ -26,6 +26,7 @@ if [ -n "$BUTTON_H" ]; then
 		ok "button.h: объявлены функции модуля кнопки"
 	else
 		fail "button.h: нет объявлений:$MISSING"
+		note "Интерфейс кнопки — button_init(), button_handle(), button_is_pressed() и button_get_press_count()."
 	fi
 fi
 
@@ -35,6 +36,7 @@ if [ -n "$BUTTON_C" ]; then
 		ok "button.c: подавление дребезга — машина состояний, enum и switch"
 	else
 		fail "button.c: нет машины состояний: перечисляемого типа и switch"
+		note "Машина из четырёх состояний разобрана в т2.3.4, раздел «Переходы по времени»."
 	fi
 	if grep -Eq 'sleep_|busy_wait' "$CODE"; then
 		fail "button.c: в модуле кнопки есть пауза"
@@ -49,6 +51,7 @@ if grep -Eq '\b20000\b|\b20[[:space:]]*\*[[:space:]]*1000\b' "$CODE"; then
 	ok "Время дребезга 20 мс задано константой"
 else
 	fail "Не видно времени дребезга 20 мс: 20000 мкс или 20 * 1000"
+	note "Задайте время дребезга константой в микросекундах."
 fi
 match "$CODE" 'gpio_pull_up[[:space:]]*\(' \
 	"Вывод кнопки подтянут к питанию, gpio_pull_up()" \

@@ -25,6 +25,7 @@ if [ -n "$PI_H" ]; then
 		ok "pi-task.h: объявлены pi_task_start(), pi_task_handle() и pi_task_get_result()"
 	else
 		fail "pi-task.h: нет объявлений:$MISSING"
+		note "Снаружи задачу видно через pi_task_start(), pi_task_handle() и pi_task_get_result()."
 	fi
 fi
 
@@ -44,6 +45,7 @@ if [ -n "$PI_C" ]; then
 		"pi-task.c: нет переменных файла со static"
 	if grep -Eq 'sleep_|busy_wait' "$CODE"; then
 		fail "pi-task.c: в задаче есть пауза"
+		note "Задача считает порцию за вызов и возвращается, не ожидая."
 	else
 		ok "pi-task.c: пауз нет"
 	fi

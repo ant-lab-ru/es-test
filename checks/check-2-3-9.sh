@@ -34,12 +34,14 @@ if [ -f "$FW_SRC/firmware.h" ]; then
 		"firmware.h: имя проекта не 239-two-buttons"
 else
 	fail "В проекте нет firmware.h"
+	note "Проект 239-two-buttons — копия шаблона, firmware.h копируется вместе с ним."
 fi
 
 # что не должно было измениться
 for f in logic/api/api.c logic/api/api.h logic/api/api-commands.h logic/pi-task/pi-task.c logic/pi-task/pi-task.h; do
 	if [ ! -f "$FW_SRC/$f" ] || [ ! -f "$TEMPLATE/$f" ]; then
 		fail "Нет файла $f в проекте или в шаблоне"
+		note "Проект 239-two-buttons — копия папки 231-firmware-template."
 	elif diff -q "$(normalize "$FW_SRC/$f")" "$(normalize "$TEMPLATE/$f")" > /dev/null; then
 		ok "$f не изменился"
 	else
@@ -55,6 +57,7 @@ for f in platform/platform.c main.c; do
 		ok "$f изменился: здесь новая кнопка"
 	else
 		fail "$f не отличается от шаблона"
+		note "Новое требование правит этот файл. Сверьтесь с разделом 8 части 1 ТЗ."
 	fi
 done
 
@@ -89,6 +92,7 @@ fi
 
 if grep -Eq 'led|period' "$(fw_join button.c button.h)"; then
 	fail "Библиотека кнопки знает, что делает нажатие"
+	note "Действие нажатия задаёт main.c функцией, переданной при запуске."
 else
 	ok "Библиотека кнопки по-прежнему не знает, что делает нажатие"
 fi

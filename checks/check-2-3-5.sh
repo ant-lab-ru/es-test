@@ -56,6 +56,7 @@ if [ -n "$PROFILING_H" ]; then
 		ok "profiling.h: объявлены функции секундомеров"
 	else
 		fail "profiling.h: нет объявлений:$MISSING"
+		note "Пять функций секундомеров даны в шаге 3 задания п2.3.5."
 	fi
 fi
 
@@ -70,12 +71,14 @@ if [ -f "$MAIN" ]; then
 		ok "main.c: секундомеры обрамляют итерацию и обработчики задач ($STARTS)"
 	else
 		fail "main.c: секундомеров $STARTS, а нужны итерация и каждая задача"
+		note "Обрамите парой profiling_start() и profiling_stop() итерацию и обработчик каждой задачи."
 	fi
 	match "$CODE" 'LOG_INF[[:space:]]*\(' \
 		"main.c: при запуске журнал получает имя и версию прошивки" \
 		"main.c: нет вызова LOG_INF при запуске"
 	if grep -Eq 'time_us_|>>' "$CODE"; then
 		fail "main.c: в main.c вычисления профилирования"
+		note "Среднее и максимум считает модуль profiling, main.c только запускает и останавливает секундомеры."
 	else
 		ok "main.c: только вызовы функций profiling"
 	fi
@@ -89,6 +92,7 @@ match "$API" 'device_get_info[[:space:]]*\(' \
 	"api: обработчик info не вызывает device_get_info()"
 if grep -Eq '"main_time_(exec|reset)"' "$API"; then
 	fail "api: остались команды main_time_exec и main_time_reset"
+	note "Их заменяют команды profiling и profiling_reset из приложения Б."
 else
 	ok "api: команды main_time_* заменены командами profiling"
 fi

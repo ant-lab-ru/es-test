@@ -21,6 +21,7 @@ for f in platform/platform.h platform/platform.c logic/api/api.h logic/api/api.c
 		ok "Файл $f на месте"
 	else
 		fail "В проекте нет файла $f"
+		note "Раскладка проекта задана в разделе 1 части 2 ТЗ."
 	fi
 done
 
@@ -35,12 +36,14 @@ if [ -f "$PLATFORM_H" ]; then
 		ok "platform.h: объявлены platform_init(), platform_led_set() и platform_button_read()"
 	else
 		fail "platform.h: нет объявлений:$MISSING"
+		note "Интерфейс platform дан в шаге 1 задания п2.3.7."
 	fi
 	match "$CODE" 'PLATFORM_BUTTON_DEBOUNCE_US' \
 		"platform.h: время дребезга кнопки этой платы — PLATFORM_BUTTON_DEBOUNCE_US" \
 		"platform.h: нет константы PLATFORM_BUTTON_DEBOUNCE_US"
 	if grep -Eq '#include[[:space:]]*[<"](pico|hardware)/' "$CODE"; then
 		fail "platform.h: заголовок подключает SDK"
+		note "SDK нужен только platform.c. Заголовок подключает лишь то, что нужно ему самому."
 	else
 		ok "platform.h: заголовок не подключает SDK"
 	fi
@@ -58,13 +61,15 @@ if [ -f "$CMAKE" ]; then
 	LOGIC_LINK="$(grep -Eo 'target_link_libraries[[:space:]]*\([[:space:]]*logic[[:space:]][^)]*' "$FLAT")"
 	if echo "$LOGIC_LINK" | grep -Eq 'pico_|hardware_'; then
 		fail "CMakeLists.txt: библиотека logic подключает SDK"
+		note "Логика работает с железом только через platform. Уберите pico_* из target_link_libraries(logic)."
 	else
 		ok "CMakeLists.txt: библиотека logic собирается без SDK"
 	fi
-	if echo "$LOGIC_LINK" | grep -Eq 'PUBLIC[[:space:]]+stdio_text_protocol'; then
+	if echo "$LOGIC_LINK" | grep -Eq 'PUBLIC[[:space:]]+stdio[-_]text[-_]protocol'; then
 		ok "CMakeLists.txt: logic подключает stdio_text_protocol как PUBLIC — ради command_t в api.h"
 	else
 		fail "CMakeLists.txt: logic не подключает stdio_text_protocol как PUBLIC"
+		note "api.h подключает заголовок протокола ради command_t, поэтому пользователям logic он тоже нужен."
 	fi
 fi
 
@@ -81,6 +86,7 @@ MAIN="$FW_SRC/main.c"
 if [ -f "$MAIN" ]; then
 	if grep -Eq '#include[[:space:]]*[<"](pico|hardware)/' "$(fw_code "$MAIN")"; then
 		fail "main.c: подключает заголовки SDK"
+		note "Всё железо запускает platform_init(), main.c SDK не нужен (правило П7)."
 	else
 		ok "main.c: заголовков SDK нет"
 	fi
@@ -136,6 +142,7 @@ if [ -z "$NO_ONCE" ]; then
 	ok "Все заголовки защищены #pragma once"
 else
 	fail "Нет #pragma once в заголовках:$NO_ONCE"
+	note "Каждый заголовок начинается с #pragma once (правило П10)."
 fi
 
 # задачи не подключают заголовки друг друга
@@ -156,6 +163,7 @@ fi
 
 if grep -Eq 'led' "$(fw_join button.c button.h)"; then
 	fail "Библиотека кнопки знает о светодиоде"
+	note "О нажатии библиотека сообщает функцией, переданной при запуске. Какой, решает main.c."
 else
 	ok "Библиотека кнопки о светодиоде не знает: о нажатии сообщает функцией"
 fi

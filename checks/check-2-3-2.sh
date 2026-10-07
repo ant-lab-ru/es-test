@@ -25,6 +25,7 @@ if [ -n "$LED_H" ]; then
 		ok "led-task.h: перечисляемый тип led_state_t с состояниями OFF, ON и BLINK"
 	else
 		fail "led-task.h: нет перечисляемого типа led_state_t с LED_STATE_OFF, LED_STATE_ON и LED_STATE_BLINK"
+		note "Тип дан дословно в шаге 1 задания п2.3.2."
 	fi
 	MISSING=""
 	for fn in led_task_init led_task_handle led_task_set_state led_task_get_state led_task_set_period_ms led_task_get_period_ms; do
@@ -34,6 +35,7 @@ if [ -n "$LED_H" ]; then
 		ok "led-task.h: объявлены функции задачи светодиода"
 	else
 		fail "led-task.h: нет объявлений:$MISSING"
+		note "Заголовок задачи разобран в т2.3.5, к нему добавляется led_task_get_period_ms()."
 	fi
 fi
 
@@ -57,6 +59,7 @@ if [ -n "$LED_C" ]; then
 	fi
 	if grep -Eq 'sleep_|busy_wait' "$CODE"; then
 		fail "led-task.c: в задаче есть пауза"
+		note "Обработчик не ждёт: вместо паузы он сверяет часы с меткой (т2.3.3)."
 	else
 		ok "led-task.c: пауз нет"
 	fi
@@ -69,6 +72,7 @@ for f in $(find "$FW_SRC" "$FW_LIBS" -type f -name '*.c' -not -path '*/build/*' 
 done
 if [ ! -s "$PERIOD" ]; then
 	fail "Нет функции проверки периода period_elapsed()"
+	note "Проверка периода разобрана в т2.3.3, раздел «Периодические задачи»."
 elif grep -Eq '\+=' "$PERIOD"; then
 	ok "Следующее срабатывание отсчитывается от прошлого: last += period"
 else

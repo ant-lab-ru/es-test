@@ -24,6 +24,7 @@ for f in check-2-3-8.py device-2-3-8.log; do
 		ok "Файл $f на месте"
 	else
 		fail "В проекте нет файла $f"
+		note "Раскладка проекта задана в разделе 1 части 2 ТЗ."
 	fi
 done
 
@@ -56,6 +57,7 @@ if device_log "$FW_SRC/device-2-3-8.log" "2.3.8"; then
 	# 1. Протокол
 	if echo "$TABLE" | awk -F '\t' '$1 == 1' | grep -q .; then
 		fail "А.3: на пустой кадр прибор ответил"
+		note "Кадр из одних пробелов командой не считается: протокол возвращает NULL."
 	else
 		ok "А.3: кадр без символов, кроме пробелов, не обрабатывается"
 	fi
@@ -93,6 +95,7 @@ if device_log "$FW_SRC/device-2-3-8.log" "2.3.8"; then
 		ok "Ф1.3: help перечисляет все 12 команд прибора, у каждой справка"
 	else
 		fail "Ф1.3: в ответе help нет команд со справкой:$MISSING"
+		note "help печатает каждую команду таблицы с её справкой."
 	fi
 	has "$(echo "$HELP" | head -1)" '^help[[:space:]]' \
 		"Б.3: перечень help начинается с help" \
@@ -134,6 +137,7 @@ if device_log "$FW_SRC/device-2-3-8.log" "2.3.8"; then
 		ok "Ф2.2: время с момента сброса идёт вровень с часами компьютера"
 	else
 		fail "Ф2.2: показания uptime не идут вровень со временем в логе"
+		note "uptime печатает миллисекунды с момента сброса, systime_ms()."
 	fi
 
 	# 3. Светодиод
@@ -182,6 +186,7 @@ if device_log "$FW_SRC/device-2-3-8.log" "2.3.8"; then
 		ok "Б.1: pi_start 5x и pi_start 10 20 — error: usage pi_start [<terms>]"
 	else
 		fail "Б.1: на pi_start 5x или pi_start 10 20 нет ответа error: usage pi_start [<terms>]"
+		note "Ошибка в записи и лишний аргумент отвечают строкой usage из приложения Б."
 	fi
 	has "$(reply pi_start 4)" '^pi: started, 1000000 terms$' \
 		"Ф5.1: pi_start без аргумента — 1 000 000 членов, ответ сразу" \
@@ -204,17 +209,20 @@ if device_log "$FW_SRC/device-2-3-8.log" "2.3.8"; then
 		ok "Ф5.2: при 1 000 000 членов π = ${PI% *}, отличие не больше 10⁻⁶"
 	else
 		fail "Ф5.2: результат ${PI% *} отличается от π больше чем на 10⁻⁶ или нет ответа pi: <значение> in <время> ms"
+		note "Сверьте формат ответа pi с приложением Б и число членов по умолчанию, 1 000 000."
 	fi
 	if [ -n "$PI" ] && [ "${PI#* }" -ge 3000 ] && [ "${PI#* }" -le 7000 ]; then
 		ok "Ф5.5: время расчёта ${PI#* } мс — близко к calc_pi из 2.2"
 	else
 		fail "Ф5.5: время расчёта ${PI#* } мс далеко от 4,7 с"
+		note "Время расчёта — от pi_task_start() до последней порции, в миллисекундах."
 	fi
 	SHORT="$(reply pi 3 | sed -n 's/^pi: [0-9.]* in \([0-9]*\) ms$/\1/p')"
 	if [ -n "$SHORT" ] && [ -n "$PI" ] && [ "$SHORT" -lt "$((${PI#* } / 5))" ]; then
 		ok "Ф5.1: 100 000 членов считаются в 10 раз быстрее: $SHORT мс"
 	else
 		fail "Ф5.1: pi_start 100000 не считает в 10 раз быстрее: ${SHORT:-?} мс"
+		note "Аргумент pi_start задаёт число членов ряда."
 	fi
 
 	# 6. Профилирование
@@ -227,6 +235,7 @@ if device_log "$FW_SRC/device-2-3-8.log" "2.3.8"; then
 		ok "Ф6.1, Ф6.2: секундомеры loop, command, led, button и pi — число замеров, среднее и максимум"
 	else
 		fail "Ф6.2: нет строк секундомеров в формате приложения Б:$MISSING"
+		note "Имена секундомеров — loop, command, led, button, pi."
 	fi
 	SLOW=""
 	for sw in led button pi; do
@@ -248,6 +257,7 @@ if device_log "$FW_SRC/device-2-3-8.log" "2.3.8"; then
 		ok "Ф6.2: после сброса число замеров начинается заново: $C1 → $C2"
 	else
 		fail "Ф6.2: после profiling_reset число замеров не сбросилось: ${C1:-?} → ${C2:-?}"
+		note "profiling_reset() обнуляет число замеров, сумму и максимум."
 	fi
 fi
 
@@ -256,6 +266,7 @@ fi
 CODE="$(fw_join '*.c' '*.h')"
 if grep -Eq '(sleep_(ms|us)|busy_wait_[a-z_]*)[[:space:]]*\(' "$CODE"; then
 	fail "Н2: в прошивке есть паузы: $(grep -Eo '(sleep_(ms|us)|busy_wait_[a-z_]*)' "$CODE" | sort -u | tr '\n' ' ')"
+	note "Вместо паузы задача сверяет часы с меткой и сразу возвращается."
 else
 	ok "Н2: в прошивке нет sleep_ms(), sleep_us() и busy_wait_*()"
 fi
@@ -275,15 +286,18 @@ if [ -z "$MISSING" ]; then
 	ok "У1, У2: раскладка проекта и библиотек — по части 2 ТЗ, раздел 1"
 else
 	fail "У1, У2: нет по раскладке части 2 ТЗ:$MISSING"
+	note "Раскладка проекта и libs/ задана в разделе 1 части 2 ТЗ."
 fi
 
 if [ -f "$FW_SRC/main.c" ] && grep -Eq '#include[[:space:]]*[<"](pico|hardware)/' "$(fw_code "$FW_SRC/main.c")"; then
 	fail "П7: main.c подключает заголовки SDK"
+	note "Всё железо запускает platform_init(), main.c SDK не нужен."
 else
 	ok "П7: main.c не подключает заголовков SDK"
 fi
 if [ -f "$FW_SRC/logic/api/api.c" ] && grep -Eq '"(info|uptime|led_[a-z]+|button|pi|pi_start|profiling|profiling_reset)"' "$(fw_code "$FW_SRC/logic/api/api.c")"; then
 	fail "П2: в api.c есть имена команд прибора, кроме help"
+	note "Обработчики и таблица команд лежат в api-callbacks.c."
 else
 	ok "П2: в api.c из имён команд только help"
 fi
@@ -310,6 +324,7 @@ if [ -n "$BUILD_DIR" ]; then
 		ok "Н4: проект собирается с -Wall без предупреждений"
 	else
 		fail "Н4: при сборке $WARNINGS предупреждений"
+		note "Соберите проект сами и исправьте каждое предупреждение -Wall."
 		grep 'warning:' "$BUILD_DIR/make.log" | head -5
 	fi
 	BIN="$(ls "$BUILD_DIR"/*.bin 2>/dev/null | head -1)"
@@ -319,6 +334,7 @@ if [ -n "$BUILD_DIR" ]; then
 			ok "Н3: образ .bin — $SIZE байт, не больше 48 КБ"
 		else
 			fail "Н3: образ .bin — $SIZE байт, больше 48 КБ"
+			note "Проверьте, не попала ли в образ функция форматного ввода sscanf()."
 		fi
 	fi
 
@@ -354,6 +370,7 @@ if [ -n "$BUILD_DIR" ]; then
 		sed -i.bak 's/PROFILING_ENABLED=1/PROFILING_ENABLED=0/' "$COPY/project/CMakeLists.txt"
 		if ! grep -q 'PROFILING_ENABLED=0' "$COPY/project/CMakeLists.txt"; then
 			fail "Ф6.3: в CMakeLists.txt нет строки PROFILING_ENABLED=1, которую можно переключить"
+			note "Выключатель задаёт target_compile_definitions(profiling PUBLIC PROFILING_ENABLED=1)."
 		elif cmake -S "$COPY/project" -B "$COPY/build" -G "Unix Makefiles" > "$COPY/cmake.log" 2>&1 &&
 			make -C "$COPY/build" --no-print-directory > "$COPY/make.log" 2>&1; then
 			OFF="$(ls "$COPY/build"/*.bin | head -1)"
@@ -361,13 +378,16 @@ if [ -n "$BUILD_DIR" ]; then
 			OFF_ELF="$(ls "$COPY/build"/*.elf | head -1)"
 			if arm-none-eabi-nm "$OFF_ELF" 2>/dev/null | grep -Eq ' (profiling_start|profiling_stop)$'; then
 				fail "Ф6.3: в сборке без профилирования остались вызовы секундомеров"
+				note "В выключенной сборке profiling_start() и profiling_stop() — пустые макросы."
 			elif [ "$OFF_SIZE" -lt "$SIZE" ]; then
 				ok "Ф6.3: без профилирования образ меньше ($OFF_SIZE против $SIZE байт), секундомеров в нём нет"
 			else
 				fail "Ф6.3: без профилирования образ не меньше: $OFF_SIZE против $SIZE байт"
+				note "Определения profiling_start() и profiling_stop() обрамляет #if PROFILING_ENABLED."
 			fi
 		else
 			fail "Ф6.3: с PROFILING_ENABLED=0 проект не собирается"
+			note "Код, который пользуется секундомерами, должен собираться и с пустыми макросами."
 			tail -10 "$COPY/make.log"
 		fi
 		rm -rf "$COPY"

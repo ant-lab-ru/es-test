@@ -21,6 +21,7 @@ if [ -f "$CMAKE" ]; then
 		"CMakeLists.txt: в project() не 231_firmware_template"
 else
 	fail "В проекте нет CMakeLists.txt"
+	note "Проект создаётся копией 221-command-time, CMakeLists.txt копируется вместе с ним."
 fi
 
 fw_need PROTOCOL_H stdio-text-protocol.h
@@ -66,6 +67,7 @@ if [ -s "$API" ]; then
 		ok "api: запись таблицы api_command_t с полями name, help и callback"
 	else
 		fail "api: нет типа api_command_t с полями name, help и callback"
+		note "Тип записи таблицы приведён в т2.3.8, раздел «Выполнение команды в API»."
 	fi
 	match "$API" '"help"' \
 		"api: есть команда help" \
@@ -81,7 +83,7 @@ if [ -s "$API" ]; then
 		"api: нет разбора числа через strtoul()"
 	if grep -Eq 'sscanf[[:space:]]*\(' "$API"; then
 		fail "api: аргумент разбирается через sscanf()"
-		note "sscanf() добавляет к образу около 25 КБ. Вернитесь к parse_u32() на strtoul()."
+		note "sscanf() добавляет к образу около 55 КБ. Вернитесь к parse_u32() на strtoul()."
 	else
 		ok "api: sscanf() не используется"
 	fi
@@ -104,6 +106,7 @@ if [ -f "$MAIN" ]; then
 	fi
 else
 	fail "В проекте нет main.c"
+	note "main.c лежит в корне папки проекта."
 fi
 
 if grep -Eq '"(mem_info|fw_info|boot_info|dev_info|clk_info|clk_sys_low|clk_sys_default)"' "$(fw_project_code)"; then
