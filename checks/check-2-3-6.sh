@@ -14,8 +14,8 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 
 fw_start "Задание 2.3.6 — Библиотеки" 231-firmware-template "${1:-.}" "${2:-}"
 
-LIBRARIES="stdio-text-protocol systime profiling device logging button"
-SOURCES="stdio-text-protocol.c systime.c profiling.c device.c log.c button.c"
+LIBRARIES="stdio-text-protocol systime profiling device logging"
+SOURCES="stdio-text-protocol.c systime.c profiling.c device.c log.c"
 
 if [ ! -d "$FW_LIBS" ]; then
 	fail "В корне репозитория нет папки libs"
@@ -32,7 +32,7 @@ if [ -f "$FW_LIBS/CMakeLists.txt" ]; then
 		grep -Eq "add_subdirectory[[:space:]]*\([[:space:]]*$name[[:space:]]*\)" "$CODE" || MISSING="$MISSING $name"
 	done
 	if [ -z "$MISSING" ]; then
-		ok "libs/CMakeLists.txt: к сборке добавлены все шесть библиотек"
+		ok "libs/CMakeLists.txt: к сборке добавлены все пять библиотек"
 	else
 		fail "libs/CMakeLists.txt: нет add_subdirectory() для:$MISSING"
 		note "libs/CMakeLists.txt добавляет каждую библиотеку строкой add_subdirectory(<имя>)."
@@ -65,15 +65,14 @@ for name in $LIBRARIES; do
 	fi
 done
 
-for name in logging button; do
-	[ -f "$FW_LIBS/$name/CMakeLists.txt" ] || continue
-	if grep -Eq 'pico_|hardware_' "$(normalize "$FW_LIBS/$name/CMakeLists.txt")"; then
-		fail "libs/$name: библиотека подключает SDK"
-		note "Журналу и подавлению дребезга SDK не нужен. Без него сборка сама проверяет эту границу."
+if [ -f "$FW_LIBS/logging/CMakeLists.txt" ]; then
+	if grep -Eq 'pico_|hardware_' "$(normalize "$FW_LIBS/logging/CMakeLists.txt")"; then
+		fail "libs/logging: библиотека подключает SDK"
+		note "Журналу SDK не нужен. Без него сборка сама проверяет эту границу."
 	else
-		ok "libs/$name: SDK не подключён"
+		ok "libs/logging: SDK не подключён"
 	fi
-done
+fi
 
 HEADERS="$(mktemp)"
 find "$FW_LIBS" -path '*/include/*' -name '*.h' | sort | while read -r f; do cat "$(fw_code "$f")"; done > "$HEADERS"
@@ -142,7 +141,7 @@ else
 fi
 
 CODE="$(fw_project_code)"
-if grep -Eq '#include[[:space:]]*"(stdio-text-protocol|systime|profiling|device|log|button)\.h"' "$CODE"; then
+if grep -Eq '#include[[:space:]]*"(stdio-text-protocol|systime|profiling|device|log)\.h"' "$CODE"; then
 	fail "Заголовок библиотеки подключён без имени библиотеки"
 	note "Пишите #include \"logging/log.h\": имена заголовков разных библиотек не должны сталкиваться."
 else

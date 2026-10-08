@@ -276,10 +276,10 @@ for f in CMakeLists.txt firmware.h main.c platform/platform.h platform/platform.
 	logic/api/api.h logic/api/api.c logic/api/api-commands.h logic/api/api-callbacks.c; do
 	[ -f "$FW_SRC/$f" ] || MISSING="$MISSING $f"
 done
-for name in stdio-text-protocol systime profiling device logging button; do
+for name in stdio-text-protocol systime profiling device logging; do
 	[ -f "$FW_LIBS/$name/CMakeLists.txt" ] && [ -d "$FW_LIBS/$name/include/$name" ] && [ -d "$FW_LIBS/$name/src" ] || MISSING="$MISSING libs/$name"
 done
-for d in led-task pi-task; do
+for d in led-task button-task pi-task; do
 	[ -d "$FW_SRC/logic/$d" ] || MISSING="$MISSING logic/$d"
 done
 if [ -z "$MISSING" ]; then
@@ -344,18 +344,18 @@ if [ -n "$BUILD_DIR" ]; then
 		cp -R "$FW_SRC" "$COPY/project"
 		cp -R "$FW_LIBS" "$COPY/libs"
 		rm -rf "$COPY/project/build"
-		for f in project/logic/api/api.c libs/logging/src/log.c libs/button/src/button.c; do
+		for f in project/logic/api/api.c libs/logging/src/log.c; do
 			[ -f "$COPY/$f" ] && { printf '#include "pico/stdlib.h"\n'; cat "$COPY/$f"; } > "$COPY/$f.new" && mv "$COPY/$f.new" "$COPY/$f"
 		done
 		cmake -S "$COPY/project" -B "$COPY/build" -G "Unix Makefiles" > "$COPY/cmake.log" 2>&1
 		# /fast собирает одну цель без зависимостей: ошибка в одной библиотеке не мешает другой
-		make -k -C "$COPY/build" --no-print-directory logic/fast logging/fast button/fast > "$COPY/make.log" 2>&1
+		make -k -C "$COPY/build" --no-print-directory logic/fast logging/fast > "$COPY/make.log" 2>&1
 		STOPPED=""
-		for f in api.c log.c button.c; do
+		for f in api.c log.c; do
 			grep -Eq "$f.*pico/stdlib\.h: No such file" "$COPY/make.log" && STOPPED="$STOPPED $f"
 		done
-		if [ "$STOPPED" = " api.c log.c button.c" ]; then
-			ok "П4: #include \"pico/stdlib.h\" в api.c, log.c и button.c останавливает сборку"
+		if [ "$STOPPED" = " api.c log.c" ]; then
+			ok "П4: #include \"pico/stdlib.h\" в api.c и log.c останавливает сборку"
 		else
 			fail "П4: заголовок SDK остановил сборку только в:${STOPPED:- ни одном файле}"
 			note "Логика и библиотеки без железа не подключают SDK, и сборка сама проверяет эту границу."

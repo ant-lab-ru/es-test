@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Дополнительное задание п2.3.9д «Долгое нажатие».
-# Проверка статическая: распознавание долгого нажатия — поведение прибора, оно лежит
-# в logic/ проекта 239-two-buttons, а не в библиотеке кнопки; порог — 1 с.
+# Проверка статическая: долгое нажатие — ещё одно событие кнопки. Его распознаёт машина
+# задачи button-task проекта 239-two-buttons и сообщает о нём второй функцией,
+# переданной при запуске; порог — 1 с; действие долгого нажатия задаёт main.c.
 # Использование: check-2-3-9d.sh <путь к репозиторию> [папка проекта]
 set -u
 
@@ -12,45 +13,61 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 
 fw_start "Задание 2.3.9д — Долгое нажатие" 239-two-buttons "${1:-.}" "${2:-}"
 
-TASKS="$(find "$FW_SRC/logic" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | grep -Ev '/(api|led-task|pi-task)$')"
-if [ -n "$TASKS" ]; then
-	ok "logic: новый модуль для жестов кнопки: $(basename "$TASKS" | tr '\n' ' ')"
-else
-	fail "logic: нет нового модуля, который распознаёт долгое нажатие"
-	note "Истолкование жестов — поведение прибора. Его место в logic/, рядом с задачами."
+BUTTON_H="$FW_SRC/logic/button-task/button-task.h"
+BUTTON_C="$FW_SRC/logic/button-task/button-task.c"
+if [ ! -f "$BUTTON_H" ] || [ ! -f "$BUTTON_C" ]; then
+	fail "В проекте нет задачи кнопки logic/button-task"
+	note "Долгое нажатие распознаёт машина задачи кнопки."
+	finish "$TITLE"
+	exit 1
 fi
+ok "Задача кнопки logic/button-task на месте"
 
-GESTURE="$(mktemp)"
-for d in $TASKS; do
-	find "$d" -type f \( -name '*.c' -o -name '*.h' \) | while read -r f; do cat "$(fw_code "$f")"; done
-done > "$GESTURE"
-if grep -Eq '\b1000000\b|\b1000[[:space:]]*\*[[:space:]]*1000\b|\b1000\b' "$GESTURE"; then
-	ok "Порог долгого нажатия — 1 с"
+CODE="$(fw_code "$BUTTON_C")"
+if grep -Eq '\b1000000\b|\b1000[[:space:]]*\*[[:space:]]*1000\b|\b1000\b' "$CODE"; then
+	ok "button-task.c: порог долгого нажатия — 1 с"
 else
-	fail "Не видно порога долгого нажатия в 1 с"
+	fail "button-task.c: не видно порога долгого нажатия в 1 с"
 	note "Задайте порог константой: 1000000 мкс или 1000 мс."
 fi
-if grep -Eq 'enum' "$GESTURE" && grep -Eq 'switch[[:space:]]*\(' "$GESTURE"; then
-	ok "Долгое нажатие — машина состояний, enum и switch"
+if grep -Eq 'enum' "$CODE" && grep -Eq 'switch[[:space:]]*\(' "$CODE"; then
+	ok "button-task.c: долгое нажатие распознаёт машина состояний, enum и switch"
 else
-	fail "Долгое нажатие распознаётся не машиной состояний"
-	note "Состояния задачи опишите перечисляемым типом и переключайте в switch."
+	fail "button-task.c: нет машины состояний: перечисляемого типа и switch"
+	note "Переходы для долгого нажатия добавляются в машину кнопки из п2.3.3."
 fi
-match "$GESTURE" 'systime_' \
-	"Время удержания берётся из systime" \
-	"Время удержания берётся не из systime"
-if grep -Eq 'sleep_|busy_wait|while' "$GESTURE"; then
-	fail "Распознавание долгого нажатия ждёт в цикле или на паузе"
-	note "Задача сверяет часы с моментом нажатия на каждом вызове и сразу возвращается."
+match "$CODE" 'systime_' \
+	"button-task.c: время удержания берётся из systime" \
+	"button-task.c: время удержания берётся не из systime"
+if grep -Eq 'sleep_|busy_wait|while' "$CODE"; then
+	fail "button-task.c: распознавание долгого нажатия ждёт в цикле или на паузе"
+	note "Машина сверяет часы с моментом нажатия на каждом вызове и сразу возвращается."
 else
-	ok "Распознавание долгого нажатия не ждёт"
+	ok "button-task.c: распознавание долгого нажатия не ждёт"
 fi
 
-if grep -Eiq 'long' "$(fw_join button.c button.h)"; then
-	fail "Долгое нажатие распознаёт библиотека кнопки"
-	note "Библиотека подавляет дребезг для любого прибора. Что значит удержание, решает этот прибор."
+# button_task_init получает две функции: на нажатие и на долгое нажатие
+INIT="$(grep -Eo 'button_task_init[[:space:]]*\([^)]*\)' "$(fw_flat "$(fw_code "$BUTTON_H")")" | head -1)"
+COMMAS="$(echo "$INIT" | tr -cd ',' | wc -c | tr -d ' ')"
+if [ "$COMMAS" -ge 2 ]; then
+	ok "button-task.h: button_task_init() получает вторую функцию — для долгого нажатия"
 else
-	ok "Библиотека кнопки о долгом нажатии не знает"
+	fail "button-task.h: button_task_init() не получает функцию для долгого нажатия"
+	note "О долгом нажатии задача сообщает второй функцией, переданной ей при запуске."
+fi
+
+if grep -Eq '(^|[^a-z])led|period' "$(fw_join button-task.c button-task.h)"; then
+	fail "Задача кнопки знает, что делают нажатия"
+	note "Действия короткого и долгого нажатия задаёт main.c."
+else
+	ok "Задача кнопки не знает, что делают нажатия"
+fi
+
+MAIN="$FW_SRC/main.c"
+if [ -f "$MAIN" ]; then
+	match "$(fw_flat "$(fw_code "$MAIN")")" 'button_task_init[[:space:]]*\([^)]*led_task_blink' \
+		"main.c: долгое нажатие первой кнопки переводит светодиод в мигание, led_task_blink" \
+		"main.c: нет действия долгого нажатия led_task_blink в button_task_init()"
 fi
 
 finish "$TITLE"

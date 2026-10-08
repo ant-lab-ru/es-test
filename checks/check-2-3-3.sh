@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Задание п2.3.3 «Кнопка без ожидания».
-# Проверка статическая: подавление дребезга — машина состояний в модуле button без пауз,
+# Проверка статическая: подавление дребезга — машина состояний в задаче button-task без пауз,
 # новый уровень принимается через 20 мс, нажатие переключает светодиод по кругу.
-# В 2.3.6 модуль переезжает в libs/button, вывод кнопки — в 2.3.7 в platform.
+# В 2.3.7 задача переезжает в logic/, вывод кнопки — в platform.
 # Использование: check-2-3-3.sh <путь к репозиторию> [папка проекта]
 set -u
 
@@ -13,36 +13,36 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 
 fw_start "Задание 2.3.3 — Кнопка без ожидания" 231-firmware-template "${1:-.}" "${2:-}"
 
-fw_need BUTTON_H button.h
-fw_need BUTTON_C button.c
+fw_need BUTTON_H button-task.h
+fw_need BUTTON_C button-task.c
 
 if [ -n "$BUTTON_H" ]; then
 	CODE="$(fw_code "$BUTTON_H")"
 	MISSING=""
-	for fn in button_init button_handle button_is_pressed button_get_press_count; do
+	for fn in button_task_init button_task_handle button_task_is_pressed button_task_get_press_count; do
 		grep -Eq "$fn[[:space:]]*\(" "$CODE" || MISSING="$MISSING $fn"
 	done
 	if [ -z "$MISSING" ]; then
-		ok "button.h: объявлены функции модуля кнопки"
+		ok "button-task.h: объявлены функции задачи кнопки"
 	else
-		fail "button.h: нет объявлений:$MISSING"
-		note "Интерфейс кнопки — button_init(), button_handle(), button_is_pressed() и button_get_press_count()."
+		fail "button-task.h: нет объявлений:$MISSING"
+		note "Интерфейс задачи кнопки — button_task_init(), button_task_handle(), button_task_is_pressed() и button_task_get_press_count()."
 	fi
 fi
 
 if [ -n "$BUTTON_C" ]; then
 	CODE="$(fw_code "$BUTTON_C")"
 	if grep -Eq 'enum' "$CODE" && grep -Eq 'switch[[:space:]]*\(' "$CODE"; then
-		ok "button.c: подавление дребезга — машина состояний, enum и switch"
+		ok "button-task.c: подавление дребезга — машина состояний, enum и switch"
 	else
-		fail "button.c: нет машины состояний: перечисляемого типа и switch"
+		fail "button-task.c: нет машины состояний: перечисляемого типа и switch"
 		note "Машина из четырёх состояний разобрана в т2.3.4, раздел «Переходы по времени»."
 	fi
 	if grep -Eq 'sleep_|busy_wait' "$CODE"; then
-		fail "button.c: в модуле кнопки есть пауза"
+		fail "button-task.c: в задаче кнопки есть пауза"
 		note "Обработчик сверяет уровень и часы с условиями перехода и сразу возвращается."
 	else
-		ok "button.c: пауз нет"
+		ok "button-task.c: пауз нет"
 	fi
 fi
 
@@ -74,9 +74,9 @@ match "$API" 'presses' \
 
 MAIN="$FW_SRC/main.c"
 if [ -f "$MAIN" ]; then
-	match "$(fw_code "$MAIN")" 'button_handle[[:space:]]*\(' \
-		"main.c: суперцикл вызывает обработчик кнопки" \
-		"main.c: нет вызова button_handle()"
+	match "$(fw_code "$MAIN")" 'button_task_handle[[:space:]]*\(' \
+		"main.c: суперцикл вызывает обработчик задачи кнопки" \
+		"main.c: нет вызова button_task_handle()"
 fi
 
 finish "$TITLE"

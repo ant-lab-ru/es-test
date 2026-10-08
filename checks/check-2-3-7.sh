@@ -16,6 +16,7 @@ fw_start "Задание 2.3.7 — Железо и логика" 231-firmware-te
 for f in platform/platform.h platform/platform.c logic/api/api.h logic/api/api.c \
 	logic/api/api-commands.h logic/api/api-callbacks.c \
 	logic/led-task/led-task.h logic/led-task/led-task.c \
+	logic/button-task/button-task.h logic/button-task/button-task.c \
 	logic/pi-task/pi-task.h logic/pi-task/pi-task.c firmware.h main.c; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
@@ -38,9 +39,6 @@ if [ -f "$PLATFORM_H" ]; then
 		fail "platform.h: нет объявлений:$MISSING"
 		note "Интерфейс platform дан в шаге 1 задания п2.3.7."
 	fi
-	match "$CODE" 'PLATFORM_BUTTON_DEBOUNCE_US' \
-		"platform.h: время дребезга кнопки этой платы — PLATFORM_BUTTON_DEBOUNCE_US" \
-		"platform.h: нет константы PLATFORM_BUTTON_DEBOUNCE_US"
 	if grep -Eq '#include[[:space:]]*[<"](pico|hardware)/' "$CODE"; then
 		fail "platform.h: заголовок подключает SDK"
 		note "SDK нужен только platform.c. Заголовок подключает лишь то, что нужно ему самому."
@@ -161,11 +159,19 @@ else
 	note "О событии задача сообщает функцией, переданной ей при запуске. Связи задаёт main.c."
 fi
 
-if grep -Eq 'led' "$(fw_join button.c button.h)"; then
-	fail "Библиотека кнопки знает о светодиоде"
-	note "О нажатии библиотека сообщает функцией, переданной при запуске. Какой, решает main.c."
-else
-	ok "Библиотека кнопки о светодиоде не знает: о нажатии сообщает функцией"
+BUTTON_DIR="$FW_SRC/logic/button-task"
+if [ -f "$BUTTON_DIR/button-task.c" ]; then
+	if grep -Eq '(^|[^a-z])led' "$(fw_join button-task.c button-task.h)"; then
+		fail "Задача кнопки знает о светодиоде"
+		note "О нажатии задача сообщает функцией, переданной при запуске. Какой, решает main.c."
+	else
+		ok "Задача кнопки о светодиоде не знает: о нажатии сообщает функцией"
+	fi
+fi
+if [ -f "$MAIN" ]; then
+	match "$(fw_flat "$(fw_code "$MAIN")")" 'button_task_init[[:space:]]*\([^)]*led_task_next_state' \
+		"main.c: связь кнопки со светодиодом задаёт button_task_init(led_task_next_state)" \
+		"main.c: нет связи кнопки со светодиодом button_task_init(led_task_next_state)"
 fi
 
 finish "$TITLE"
