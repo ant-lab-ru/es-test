@@ -95,7 +95,7 @@ if [ -n "${PICO_SDK_PATH:-}" ]; then
 	else
 		fail "Конфигурация сборки завершается с ошибкой"
 		note "Последние строки вывода cmake:"
-		tail -20 "$BUILD/cmake.log"
+		excerpt "$(tail -20 "$BUILD/cmake.log")"
 	fi
 	rm -rf "$BUILD"
 else
