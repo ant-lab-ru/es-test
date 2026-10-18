@@ -46,6 +46,14 @@ match "$LOG" 'GNU Make [0-9]+\.[0-9]+' \
 	"GNU Make: версия записана" "GNU Make: в tools.log нет строки с версией"
 match "$LOG" 'arm-none-eabi-gcc.*\)[[:space:]]+[0-9]+\.[0-9]+' \
 	"ARM GCC: версия записана" "ARM GCC: в tools.log нет строки с версией"
+# Сервер собирает на Arm GNU Toolchain из .github/actions/pico-toolchain. Со старым набором
+# стандартная библиотека newlib другая, и код, собранный у себя, может не собраться на сервере:
+# до newlib 4.3 <stdio.h> тянул за собой нестандартный тип uint.
+GCC_MAJOR="$(sed -n 's/^arm-none-eabi-gcc.*)[[:space:]]*\([0-9]*\)\..*/\1/p' "$LOG" | head -1)"
+if [ -n "$GCC_MAJOR" ] && [ "$GCC_MAJOR" -lt 13 ]; then
+	warn "ARM GCC: основная версия $GCC_MAJOR ниже 13, а сервер проверки собирает на 15.3"
+	note "Поставьте Arm GNU Toolchain по инструкции из задания П1.1.1, иначе проект может собираться у вас и не собираться на сервере."
+fi
 pinned 'picotool' "picotool"
 pinned 'pico-sdk' "Pico SDK"
 match "$LOG" '^code [0-9]+\.[0-9]+\.[0-9]+' \
