@@ -325,7 +325,7 @@ if [ -n "$BUILD_DIR" ]; then
 	else
 		fail "Н4: при сборке $WARNINGS предупреждений"
 		note "Соберите проект сами и исправьте каждое предупреждение -Wall."
-		grep 'warning:' "$BUILD_DIR/make.log" | head -5
+		excerpt "$(grep 'warning:' "$BUILD_DIR/make.log" | head -5)"
 	fi
 	BIN="$(ls "$BUILD_DIR"/*.bin 2>/dev/null | head -1)"
 	if [ -n "$BIN" ]; then
@@ -349,7 +349,7 @@ if [ -n "$BUILD_DIR" ]; then
 		done
 		cmake -S "$COPY/project" -B "$COPY/build" -G "Unix Makefiles" > "$COPY/cmake.log" 2>&1
 		# /fast собирает одну цель без зависимостей: ошибка в одной библиотеке не мешает другой
-		make -k -C "$COPY/build" --no-print-directory logic/fast logging/fast > "$COPY/make.log" 2>&1
+		make -k -C "$COPY/build" --no-print-directory $MAKE_SHELL logic/fast logging/fast > "$COPY/make.log" 2>&1
 		STOPPED=""
 		for f in api.c log.c; do
 			grep -Eq "$f.*pico/stdlib\.h: No such file" "$COPY/make.log" && STOPPED="$STOPPED $f"
@@ -359,6 +359,8 @@ if [ -n "$BUILD_DIR" ]; then
 		else
 			fail "П4: заголовок SDK остановил сборку только в:${STOPPED:- ни одном файле}"
 			note "Логика и библиотеки без железа не подключают SDK, и сборка сама проверяет эту границу."
+			note "Последние строки вывода cmake и make:"
+			excerpt "$(tail -5 "$COPY/cmake.log"; tail -15 "$COPY/make.log")"
 		fi
 		rm -rf "$COPY"
 
@@ -372,7 +374,7 @@ if [ -n "$BUILD_DIR" ]; then
 			fail "Ф6.3: в CMakeLists.txt нет строки PROFILING_ENABLED=1, которую можно переключить"
 			note "Выключатель задаёт target_compile_definitions(profiling PUBLIC PROFILING_ENABLED=1)."
 		elif cmake -S "$COPY/project" -B "$COPY/build" -G "Unix Makefiles" > "$COPY/cmake.log" 2>&1 &&
-			make -C "$COPY/build" --no-print-directory > "$COPY/make.log" 2>&1; then
+			make -C "$COPY/build" --no-print-directory $MAKE_SHELL > "$COPY/make.log" 2>&1; then
 			OFF="$(ls "$COPY/build"/*.bin | head -1)"
 			OFF_SIZE="$(wc -c < "$OFF" | tr -d ' ')"
 			OFF_ELF="$(ls "$COPY/build"/*.elf | head -1)"
@@ -388,7 +390,13 @@ if [ -n "$BUILD_DIR" ]; then
 		else
 			fail "Ф6.3: с PROFILING_ENABLED=0 проект не собирается"
 			note "Код, который пользуется секундомерами, должен собираться и с пустыми макросами."
-			tail -10 "$COPY/make.log"
+			if [ -f "$COPY/make.log" ]; then
+				note "Последние строки вывода make:"
+				excerpt "$(tail -15 "$COPY/make.log")"
+			else
+				note "Конфигурация сборки завершилась с ошибкой, последние строки вывода cmake:"
+				excerpt "$(tail -15 "$COPY/cmake.log")"
+			fi
 		fi
 		rm -rf "$COPY"
 	fi

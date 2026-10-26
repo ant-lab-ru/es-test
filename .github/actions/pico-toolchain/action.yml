@@ -1,22 +1,46 @@
 name: Инструменты сборки RP2040
-description: Ставит ARM GCC и CMake, разворачивает Pico SDK и picotool, задаёт переменные среды.
+description: Ставит Arm GNU Toolchain и CMake, разворачивает Pico SDK и picotool, задаёт переменные среды.
 
 inputs:
   sdk-version:
     description: Версия Pico SDK и picotool
     required: false
     default: "2.3.0"
+  gcc-version:
+    description: Версия Arm GNU Toolchain — та же, что в инструкции курса (карточка GCC в es-book)
+    required: false
+    default: "15.3.rel1"
 
 runs:
   using: composite
   steps:
-    - name: Компилятор и система сборки
+    - name: Система сборки
       shell: bash
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends \
-          cmake build-essential gcc-arm-none-eabi libnewlib-arm-none-eabi \
-          libstdc++-arm-none-eabi-newlib libusb-1.0-0-dev pkg-config
+          cmake build-essential libusb-1.0-0-dev pkg-config
+
+    # Компилятор берётся у Arm, а не пакетом Ubuntu: версия пакета меняется вместе с образом
+    # ubuntu-latest, а с ней и стандартная библиотека newlib. Код, собранный у обучающегося,
+    # должен вести себя на сервере так же.
+    - name: Кэш Arm GNU Toolchain
+      id: gcc-cache
+      uses: actions/cache@v6
+      with:
+        path: ~/arm-gnu-toolchain
+        key: arm-gnu-toolchain-${{ inputs.gcc-version }}-${{ runner.os }}
+
+    - name: Загрузка Arm GNU Toolchain
+      if: steps.gcc-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        name="arm-gnu-toolchain-${{ inputs.gcc-version }}-x86_64-arm-none-eabi.tar.xz"
+        url="https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/${{ inputs.gcc-version }}/$name"
+        curl -fsSL --retry 3 -o "$RUNNER_TEMP/$name" "$url" ||
+          { echo "::error::Не удалось скачать $url"; exit 1; }
+        mkdir -p ~/arm-gnu-toolchain
+        tar -xJf "$RUNNER_TEMP/$name" -C ~/arm-gnu-toolchain --strip-components=1
 
     - name: Кэш Pico SDK и picotool
       id: cache
@@ -51,5 +75,7 @@ runs:
     - name: Переменные среды
       shell: bash
       run: |
+        echo "$HOME/arm-gnu-toolchain/bin" >> "$GITHUB_PATH"
         echo "PICO_SDK_PATH=$HOME/pico/pico-sdk" >> "$GITHUB_ENV"
         echo "picotool_DIR=$HOME/pico/picotool-install/lib/cmake/picotool" >> "$GITHUB_ENV"
+        "$HOME/arm-gnu-toolchain/bin/arm-none-eabi-gcc" --version | head -1

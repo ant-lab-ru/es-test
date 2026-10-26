@@ -37,7 +37,7 @@ if cmake -S "$SRC" -B "$BUILD" -G "Unix Makefiles" > "$BUILD/cmake.log" 2>&1; th
 	ok "Конфигурация сборки завершается без ошибок"
 else
 	fail "Конфигурация сборки завершается с ошибкой"
-	tail -20 "$BUILD/cmake.log"
+	excerpt "$(tail -20 "$BUILD/cmake.log")"
 	rm -rf "$BUILD"
 	finish "$TITLE"
 	exit 1
@@ -48,7 +48,7 @@ if make -C "$BUILD" --no-print-directory $MAKE_SHELL > "$BUILD/make.log" 2>&1; t
 else
 	fail "Сборка завершается с ошибкой"
 	note "Последние строки вывода make:"
-	tail -30 "$BUILD/make.log"
+	excerpt "$(tail -30 "$BUILD/make.log")"
 	rm -rf "$BUILD"
 	finish "$TITLE"
 	exit 1

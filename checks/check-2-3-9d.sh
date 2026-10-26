@@ -56,7 +56,7 @@ else
 	note "О долгом нажатии задача сообщает второй функцией, переданной ей при запуске."
 fi
 
-if grep -Eq '(^|[^a-z])led|period' "$(fw_join button-task.c button-task.h)"; then
+if sed 's/systime_period_elapsed//g' "$(fw_join button-task.c button-task.h)" | grep -Eq '(^|[^a-z])led|period'; then
 	fail "Задача кнопки знает, что делают нажатия"
 	note "Действия короткого и долгого нажатия задаёт main.c."
 else

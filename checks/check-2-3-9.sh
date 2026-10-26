@@ -92,7 +92,7 @@ else
 fi
 
 if [ -f "$FW_SRC/logic/button-task/button-task.c" ]; then
-	if grep -Eq '(^|[^a-z])led|period' "$(fw_join button-task.c button-task.h)"; then
+	if sed 's/systime_period_elapsed//g' "$(fw_join button-task.c button-task.h)" | grep -Eq '(^|[^a-z])led|period'; then
 		fail "Задача кнопки знает, что делает нажатие"
 		note "Действие нажатия задаёт main.c функцией, переданной при запуске."
 	else
