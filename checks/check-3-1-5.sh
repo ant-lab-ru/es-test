@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Задание п3.1.5 «Исследование RC-цепи».
-# Прибор 311-adc заряжает RC-цепь с вывода GP22 командами charge_on и charge_off,
-# скрипт get_telemetry.py --rc снимает 5 с заряда и 5 с разряда в rc.csv и rc.png.
-# Проверка сама оценивает постоянную времени по rc.csv на заряде и на разряде
-# и сравнивает её с R·C и с оценкой обучающегося из README.md проекта, допуск 25 %.
+# Прибор 311-adc заряжает RC-цепь с вывода GP22 командами charge_on и charge_off.
+# Скрипт rc.py --r <кОм> --c <мкФ> ведёт опыт по 5τ на заряд и разряд,
+# сохраняет rc.csv, rc.png и rc.log с номиналами и найденной τ.
+# Проверка читает номиналы из rc.log и сама находит τ по rc.csv тем же способом,
+# что скрипт: время от начала заряда до 63 % вершины и от начала разряда до 37 %.
+# Обе τ должны попасть в допуск деталей, от 0,76 до 1,26 R·C.
 # Использование: check-3-1-5.sh <путь к репозиторию> [папка проекта]
 set -u
 
@@ -15,12 +17,12 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 
 fw_start "Задание 3.1.5 — Исследование RC-цепи" 311-adc "${1:-.}" "${2:-}"
 
-for f in platform/platform.c get_telemetry.py rc.csv rc.png README.md; do
+for f in platform/platform.c rc.py rc.csv rc.png rc.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
 		fail "В проекте нет файла $f"
-		note "rc.csv и rc.png создаёт get_telemetry.py --rc, номиналы и τ записываются в README.md проекта."
+		note "rc.csv, rc.png и rc.log создаёт rc.py --r <кОм> --c <мкФ>."
 	fi
 done
 
@@ -48,24 +50,46 @@ if grep -Eq '#include[[:space:]]*[<"](pico|hardware)/|gpio_' "$LOGIC"; then
 	note "Вывод заряда, как светодиод, — дело platform. Команда вызывает функцию platform."
 fi
 
-SCRIPT="$FW_SRC/get_telemetry.py"
+SCRIPT="$FW_SRC/rc.py"
 if [ -f "$SCRIPT" ]; then
 	CODE="$(normalize "$SCRIPT")"
 	if grep -q 'charge_on' "$CODE" && grep -q 'charge_off' "$CODE"; then
-		ok "get_telemetry.py: опыт ведёт скрипт, команды заряда отправляет сам"
+		ok "rc.py: опыт ведёт скрипт, команды заряда отправляет сам"
 	else
-		fail "get_telemetry.py: не видно команд charge_on и charge_off"
+		fail "rc.py: не видно команд charge_on и charge_off"
 		note "Во время записи плату и цепь руками не трогают: заряд включает и выключает скрипт."
 	fi
 fi
 
 build_project "$FW_SRC"
 
-# Постоянная времени по rc.csv: участки до и после максимума, точки от 10 до 90 % размаха,
-# наклон прямой ln(1 − U/Umax) или ln(U/Umax) от времени методом наименьших квадратов.
+# value <ключ> — значение из rc.log, строки вида «ключ = значение»
+LOG="$FW_SRC/rc.log"
+value() {
+	[ -f "$LOG" ] && grep -E "^$1[[:space:]]*=" "$(normalize "$LOG")" | head -1 | sed 's/.*=[[:space:]]*//'
+}
+
+R_KOHM="$(value R_kohm)"
+C_UF="$(value C_uf)"
+TAU=""
+if [ -n "$R_KOHM" ] && [ -n "$C_UF" ]; then
+	TAU="$(awk -v r="$R_KOHM" -v c="$C_UF" 'BEGIN { printf "%.3f", r * c / 1000 }')"
+	ok "rc.log: R = $R_KOHM кОм, C = $C_UF мкФ, R·C = $TAU с"
+	if awk -v r="$R_KOHM" 'BEGIN { exit !(r >= 1 && r <= 100) }'; then
+		ok "Резистор в пределах от 1 до 100 кОм"
+	else
+		fail "Резистор $R_KOHM кОм вне пределов от 1 до 100 кОм"
+		note "Меньше 1 кОм вывод GP22 даёт слишком большой ток, больше 100 кОм сказывается утечка конденсатора."
+	fi
+elif [ -f "$LOG" ]; then
+	fail "rc.log: нет строк R_kohm и C_uf"
+	note "rc.log пишет скрипт, запущенный с номиналами: rc.py --r 10 --c 100."
+fi
+
+# Постоянная времени по rc.csv, как в скрипте. Вершина — наибольшее напряжение записи.
+# Заряд: от первой записи выше 2 % вершины до первой записи выше 63,2 %.
+# Разряд: от вершины, от первой записи ниже 98 % до первой записи ниже 36,8 %.
 CSV="$FW_SRC/rc.csv"
-TAU_CHARGE=""
-TAU_DISCHARGE=""
 if [ -f "$CSV" ]; then
 	DATA="$(normalize "$CSV")"
 	if [ "$(head -1 "$DATA")" = "time_s,voltage_v,temp_c" ]; then
@@ -73,34 +97,67 @@ if [ -f "$CSV" ]; then
 	else
 		fail "rc.csv: заголовок не time_s,voltage_v,temp_c"
 	fi
-	FIT="$(tail -n +2 "$DATA" | awk -F, '
-		{ t[NR] = $1; v[NR] = $2; if ($2 > top) { top = $2; peak = NR } }
-		function fit(a, b, kind,   i, n, st, sy, stt, sty, y, slope) {
-			for (i = a; i <= b; i++) {
-				if (v[i] <= 0.1 * top || v[i] >= 0.9 * top) continue
-				y = kind == "c" ? log(1 - v[i] / top) : log(v[i] / top)
-				n++; st += t[i]; sy += y; stt += t[i] * t[i]; sty += t[i] * y
-			}
-			if (n < 5) return "none"
-			slope = (n * sty - st * sy) / (n * stt - st * st)
-			return slope < 0 ? sprintf("%.3f", -1 / slope) : "none"
+	FOUND="$(tail -n +2 "$DATA" | awk -F, '
+		{ t[NR] = $1; v[NR] = $2; if (NR == 1 || $2 > top) { top = $2; peak = NR } }
+		function at(i) { return i == "" ? "-" : t[i] }
+		function cross(from, level, rising,   i) {
+			if (from == "") return ""
+			for (i = from; i <= NR; i++)
+				if (rising ? v[i] >= level : v[i] <= level) return i
+			return ""
 		}
-		END { printf "%s %s %.3f %d", fit(1, peak - 1, "c"), fit(peak + 1, NR, "d"), top, NR }')"
-	set -- $FIT
-	ROWS="$4"
-	if [ "$ROWS" -ge 500 ]; then
-		ok "rc.csv: записей $ROWS"
-	else
-		fail "rc.csv: записей $ROWS, мало для опыта"
-		note "Опыт длится 10 с с периодом 10 мс, это около тысячи записей."
+		END {
+			cs = cross(1, 0.02 * top, 1); ce = cross(cs, 0.632 * top, 1)
+			if (ce == "" || ce > peak) { cs = ""; ce = "" }
+			ds = cross(peak, 0.98 * top, 0); de = cross(ds, 0.368 * top, 0)
+			printf "%d %s %s %s %s %s %s", NR, t[2] - t[1], t[NR], at(cs), at(ce), at(ds), at(de)
+			if (cs == "") printf " none"; else printf " %.3f", t[ce] - t[cs]
+			if (de == "") printf " none"; else printf " %.3f", t[de] - t[ds]
+		}')"
+	set -- $FOUND
+	ROWS="$1" STEP="$2" LAST="$3" CS="$4" DS="$6" TAU_CHARGE="$8" TAU_DISCHARGE="$9"
+	ok "rc.csv: записей $ROWS, шаг $STEP с"
+
+	if [ -n "$TAU" ]; then
+		if awk -v tau="$TAU" -v dt="$STEP" 'BEGIN { exit !(dt > 0 && tau / dt >= 20) }'; then
+			ok "На τ приходится не меньше 20 отсчётов"
+		else
+			fail "На τ = $TAU с приходится меньше 20 отсчётов при шаге $STEP с"
+			note "Возьмите детали с τ от 0,2 с, таблица пар — в задании."
+		fi
+		if [ "$TAU_CHARGE" != "none" ] && [ "$TAU_DISCHARGE" != "none" ] &&
+			awk -v tau="$TAU" -v cs="$CS" -v ds="$DS" -v last="$LAST" \
+				'BEGIN { exit !(ds - cs >= 4 * tau && last - ds >= 4 * tau) }'; then
+			ok "Заряд и разряд длятся не меньше 4τ каждый"
+		else
+			fail "Заряд или разряд в записи короче 4τ"
+			note "Опыт ведёт скрипт по номиналам. Проверьте, что в --r и --c те же детали, что в цепи."
+		fi
 	fi
-	if [ "$1" != "none" ] && [ "$2" != "none" ]; then
-		TAU_CHARGE="$1"
-		TAU_DISCHARGE="$2"
-		ok "rc.csv: экспонента видна, τ на заряде $1 с, на разряде $2 с, напряжение до $3 В"
-	else
-		fail "rc.csv: на заряде или на разряде экспоненты не видно"
+
+	if [ "$TAU_CHARGE" = "none" ] || [ "$TAU_DISCHARGE" = "none" ]; then
+		fail "rc.csv: напряжение не проходит уровни 63 % на заряде или 37 % на разряде"
 		note "Проверьте цепь: GP22 → резистор → GP26, конденсатор между GP26 и землёй, плюсом к GP26."
+	elif [ -n "$TAU" ]; then
+		RANGE="$(awk -v tau="$TAU" 'BEGIN { printf "%.3f %.3f", 0.76 * tau, 1.26 * tau }')"
+		set -- $RANGE
+		LOW="$1" HIGH="$2"
+		if awk -v a="$TAU_CHARGE" -v b="$TAU_DISCHARGE" -v lo="$LOW" -v hi="$HIGH" \
+			'BEGIN { exit !(a >= lo && a <= hi && b >= lo && b <= hi) }'; then
+			ok "τ заряда $TAU_CHARGE с и разряда $TAU_DISCHARGE с в диапазоне ${LOW}–${HIGH} с"
+		else
+			fail "τ заряда $TAU_CHARGE с или разряда $TAU_DISCHARGE с вне диапазона ${LOW}–${HIGH} с"
+			note "Сверьте номиналы по маркировке и полярность конденсатора."
+		fi
+		LOG_CHARGE="$(value tau_charge_s)"
+		LOG_DISCHARGE="$(value tau_discharge_s)"
+		if awk -v a="$TAU_CHARGE" -v b="$TAU_DISCHARGE" -v la="$LOG_CHARGE" -v lb="$LOG_DISCHARGE" \
+			'BEGIN { da = a - la; db = b - lb; exit !(la != "" && lb != "" && da * da < 1e-4 && db * db < 1e-4) }'; then
+			ok "rc.log: τ совпадает с записью rc.csv"
+		else
+			fail "rc.log: τ ($LOG_CHARGE и $LOG_DISCHARGE с) не совпадает с записью rc.csv"
+			note "rc.log и rc.csv должны быть из одного опыта. Пересчитать: rc.py --r … --c … --plot rc.csv."
+		fi
 	fi
 fi
 
@@ -110,66 +167,6 @@ if [ -f "$PNG" ]; then
 		ok "rc.png: это изображение PNG"
 	else
 		fail "rc.png: файл не PNG"
-	fi
-fi
-
-# number <строка README> — число из строки, запятая как точка
-number() {
-	echo "$1" | sed 's/,/./' | grep -Eo '[0-9]+(\.[0-9]+)?' | head -1
-}
-
-README="$FW_SRC/README.md"
-if [ -f "$README" ]; then
-	TEXT="$(normalize "$README")"
-	R_LINE="$(grep -E '^R[[:space:]]*=' "$TEXT" | head -1)"
-	C_LINE="$(grep -E '^C[[:space:]]*=' "$TEXT" | head -1)"
-	T_LINE="$(grep -E '^τ[[:space:]]*=' "$TEXT" | head -1)"
-	R_OHM=""
-	C_F=""
-	case "$R_LINE" in
-		*кОм*) R_OHM="$(awk -v x="$(number "$R_LINE")" 'BEGIN { print x * 1000 }')" ;;
-		*МОм*) R_OHM="$(awk -v x="$(number "$R_LINE")" 'BEGIN { print x * 1000000 }')" ;;
-		*Ом*) R_OHM="$(number "$R_LINE")" ;;
-	esac
-	case "$C_LINE" in
-		*мкФ*) C_F="$(awk -v x="$(number "$C_LINE")" 'BEGIN { print x / 1000000 }')" ;;
-		*нФ*) C_F="$(awk -v x="$(number "$C_LINE")" 'BEGIN { print x / 1000000000 }')" ;;
-	esac
-	if [ -n "$R_OHM" ] && [ -n "$C_F" ]; then
-		RC="$(awk -v r="$R_OHM" -v c="$C_F" 'BEGIN { printf "%.3f", r * c }')"
-		ok "README.md: R = $R_OHM Ом, C = $C_F Ф, R·C = $RC с"
-	else
-		fail "README.md: не найдены строки R = … и C = … с единицами"
-		note "Строки вида R = 10 кОм и C = 100 мкФ, каждая с начала строки."
-	fi
-	STUDENT="$(number "$T_LINE")"
-	if [ -n "$STUDENT" ]; then
-		ok "README.md: оценка по графику τ = $STUDENT с"
-	else
-		fail "README.md: нет строки τ = … с вашей оценкой по графику"
-		note "Строка вида τ = 1.02 с, с начала строки."
-	fi
-
-	# near <a> <b> — отличаются ли числа не больше чем на 25 % от второго
-	near() {
-		awk -v a="$1" -v b="$2" 'BEGIN { d = a - b; if (d < 0) d = -d; exit !(b > 0 && d / b <= 0.25) }'
-	}
-	if [ -n "${RC:-}" ] && [ -n "$TAU_CHARGE" ]; then
-		if near "$TAU_CHARGE" "$RC" && near "$TAU_DISCHARGE" "$RC"; then
-			ok "τ по записи ($TAU_CHARGE и $TAU_DISCHARGE с) сходится с R·C = $RC с в пределах 25 %"
-		else
-			fail "τ по записи ($TAU_CHARGE и $TAU_DISCHARGE с) расходится с R·C = $RC с больше чем на 25 %"
-			note "Сверьте номиналы по маркировке. У электролитического конденсатора допуск до 20 %."
-		fi
-	fi
-	if [ -n "$STUDENT" ] && [ -n "$TAU_CHARGE" ]; then
-		MEAN="$(awk -v a="$TAU_CHARGE" -v b="$TAU_DISCHARGE" 'BEGIN { printf "%.3f", (a + b) / 2 }')"
-		if near "$STUDENT" "$MEAN"; then
-			ok "Ваша оценка τ = $STUDENT с сходится с оценкой по записи $MEAN с"
-		else
-			fail "Ваша оценка τ = $STUDENT с расходится с оценкой по записи $MEAN с"
-			note "По графику τ — время, за которое напряжение проходит 63 % пути до конечного значения."
-		fi
 	fi
 fi
 
