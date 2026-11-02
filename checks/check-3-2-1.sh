@@ -51,7 +51,7 @@ if [ -n "$PLATFORM_C" ]; then
 		note "Обработчик — функция, которую получает add_repeating_timer_ms(): bool имя(repeating_timer_t *timer)."
 	elif grep -Eq 'printf|puts[[:space:]]*\(|putchar|sleep_|busy_wait' "$BODIES"; then
 		fail "Обработчик будильника печатает или ждёт"
-		note "Пока идёт обработчик, прошивка стоит, а printf() из обработчика теряется (т3.2.4)."
+		note "Пока идёт обработчик, прошивка стоит, а printf() из обработчика теряется (т3.2.5)."
 	else
 		ok "Обработчик будильника не печатает и не ждёт"
 	fi

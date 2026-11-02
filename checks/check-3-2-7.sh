@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Задание п3.2.7 «Сторожевой таймер».
-# Команда wdt_enable <timeout_ms> включает сторожевой таймер, суперцикл обновляет его
-# после всех задач, hang вешает суперцикл навсегда, reset_reason после перезапуска
-# сообщает причину сброса и счётчик перезапусков из scratch-регистра.
-# Читает код, собирает проект и разбирает лог: прибор жив при обновлении, после hang
-# плата перезапускается, причина — сторожевой таймер.
+# Задание п3.2.7 «Запись звука».
+# Модуль MAX9814 подключён к GP26. Команды mic_bias и mic_level [<ms>] снимают блок
+# через DMA задачей block-task и отвечают смещением и уровнем сигнала. rec_audio.py
+# принимает поток и сохраняет голос в recording.wav (16 бит, 44100 Гц), итог — в recording.log.
+# Читает код, собирает проект и разбирает лог: смещение 1,0–1,5 В (микрофон подключён),
+# формат уровня, окно в миллисекундах, ошибки аргументов. Затем читает заголовок WAV и лог записи.
 # Использование: check-3-2-7.sh <путь к репозиторию> [папка проекта]
 set -u
 
@@ -19,44 +19,28 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/handlers.sh"
 
 
-fw_start "Задание 3.2.7 — Сторожевой таймер" 321-audio-recorder "${1:-.}" "${2:-}"
+fw_start "Задание 3.2.7 — Запись звука" 321-audio-recorder "${1:-.}" "${2:-}"
 
-fw_need PLATFORM_C platform.c
-for f in main.c check-3-2-7.py device-3-2-7.log; do
+fw_need API_C api-callbacks.c
+for f in check-3-2-7.py device-3-2-7.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
 		fail "В проекте нет файла $f"
 	fi
 done
-if [ -n "$PLATFORM_C" ]; then
-	PLAT="$(fw_code "$PLATFORM_C")"
-	match "$PLAT" 'watchdog_enable[[:space:]]*\(' \
-		"platform.c: сторожевой таймер включает watchdog_enable()" \
-		"platform.c: нет вызова watchdog_enable()"
-	match "$PLAT" 'watchdog_enable_caused_reboot[[:space:]]*\(' \
-		"platform.c: причину сброса узнаёт watchdog_enable_caused_reboot()" \
-		"platform.c: нет watchdog_enable_caused_reboot()"
-	match "$PLAT" 'scratch\[' \
-		"platform.c: счётчик перезапусков хранится в scratch-регистре" \
-		"platform.c: не видно scratch-регистров"
-	BODIES="$(mktemp)"
-	handler_bodies "$PLAT" > "$BODIES"
-	if grep -Eq 'watchdog_update' "$BODIES"; then
-		fail "Сторожевой таймер обновляется в обработчике прерывания"
-		note "Прерывания приходят и при зависшем суперцикле: таймер будет обновляться у прибора, который уже не работает (т3.2.7)."
+if [ -n "$API_C" ]; then
+	API="$(fw_code "$API_C")"
+	if [ "$(grep -Ec 'block_task_start[[:space:]]*\(' "$API")" -ge 1 ] && grep -Eq '"mic_bias"' "$API" && grep -Eq '"mic_level"' "$API"; then
+		ok "api: mic_bias и mic_level снимают блок задачей block-task"
 	else
-		ok "Обработчики прерываний сторожевой таймер не обновляют"
+		fail "api: нет команд mic_bias и mic_level на задаче block-task"
+		note "Блок отсчётов уже умеет снимать задача из п3.2.3, ей передаётся другая функция для готового блока."
 	fi
-fi
-MAIN="$FW_SRC/main.c"
-if [ -f "$MAIN" ]; then
-	CODE="$(fw_code "$MAIN")"
-	if awk '/while[[:space:]]*\(/ { loop = 1 } loop && /watchdog/ { found = 1 } END { exit !found }' "$CODE"; then
-		ok "main.c: суперцикл обновляет сторожевой таймер"
+	if grep -Eq '(^|[^a-z_])(adc|dma)_[a-z_]+[[:space:]]*\(' "$API"; then
+		fail "api-callbacks.c: команды обращаются к АЦП или DMA напрямую"
 	else
-		fail "main.c: в суперцикле нет обновления сторожевого таймера"
-		note "Обновление — в суперцикле после всех задач, функцией platform."
+		ok "api-callbacks.c: к АЦП и DMA обращается только platform"
 	fi
 fi
 
@@ -78,58 +62,125 @@ if device_log "$FW_SRC/device-3-2-7.log" "3.2.7"; then
 	reply() {
 		exchange_replies "$TABLE" "$1" "$2" | cut -f2 | tail -n +2
 	}
-	HELP="$(reply help 1)"
-	for c in wdt_enable hang reset_reason; do
-		if ! echo "$HELP" | grep -Eq "^$c[[:space:]]+[^[:space:]]"; then
-			fail "В ответе help нет $c со справкой"
+	BIAS="$(reply mic_bias 1 | grep -E '^mic: bias [0-9]+\.[0-9]{3} V$' | sed -E 's/mic: bias ([0-9.]+) V/\1/')"
+	if [ -z "$BIAS" ]; then
+		fail "Ответ на mic_bias не mic: bias <напряжение> V"
+	elif awk -v b="$BIAS" 'BEGIN { exit !(b >= 1.0 && b <= 1.5) }'; then
+		ok "Смещение микрофона $BIAS В, у MAX9814 оно около 1,25 В"
+	else
+		fail "Смещение $BIAS В, а у MAX9814 оно около 1,25 В"
+		note "Похоже, микрофон не подключён: свободный вход GP26 показывает случайное напряжение. Проверьте провод Out → GP26, Vdd → 3V3(OUT) и GND."
+	fi
+	# level_check <номер вызова> <окно, мс>
+	level_check() {
+		local line
+		line="$(reply mic_level "$1" | grep -E '^mic: level [0-9]+\.[0-9] mV rms, peak [0-9]+\.[0-9] mV, [0-9]+ ms$')"
+		if [ -z "$line" ]; then
+			fail "mic_level, окно $2 мс: ответ не mic: level <мВ> mV rms, peak <мВ> mV, <мс> ms"
+			return
 		fi
-	done
-	if reply reset_reason 1 | grep -Eq '^reset: (other|watchdog), restarts [0-9]+$'; then
-		ok "reset_reason отвечает reset: <причина>, restarts <число>"
+		set -- "$@" $(echo "$line" | sed -E 's/mic: level ([0-9.]+) mV rms, peak ([0-9.]+) mV, ([0-9]+) ms/\1 \2 \3/')
+		if awk -v r="$3" -v p="$4" -v w="$5" -v want="$2" 'BEGIN { exit !(r <= p && r < 1650 && w >= want - 1 && w <= want) }'; then
+			ok "mic_level, окно $5 мс: $3 мВ среднеквадратично, пик $4 мВ"
+		else
+			fail "mic_level, окно $2 мс: $3 мВ среднеквадратично, пик $4 мВ, окно $5 мс не сходятся"
+			note "Уровень — отклонение от среднего блока. Среднеквадратичное не больше пикового."
+		fi
+	}
+	level_check 1 100
+	level_check 2 50
+	level_check 3 185
+	if reply mic_level 4 | grep -Eq '^error: ms must be 1\.\.185$' && reply mic_level 5 | grep -Eq '^error: ms must be 1\.\.185$'; then
+		ok "mic_level 0 и mic_level 200 отклонены: error: ms must be 1..185"
 	else
-		fail "Ответ на reset_reason не reset: <причина>, restarts <число>"
+		fail "mic_level 0 или mic_level 200 не ответили error: ms must be 1..185"
 	fi
-	if reply wdt_enable 1 | grep -Eq '^error: timeout_ms must be 1\.\.8388$'; then
-		ok "wdt_enable 9000 отклонён: у RP2040 таймаут не больше 8388 мс"
-	else
-		fail "wdt_enable 9000 не ответил error: timeout_ms must be 1..8388"
-		note "Счётчик убывает на 2 за тик (RP2040-E1), поэтому предел — 8388 мс."
+fi
+
+
+# --- запись голоса ---
+
+# wav_field <файл> <смещение> <байтов: 2 или 4> — число из заголовка WAV, младшим байтом вперёд
+wav_field() {
+	od -An -j "$2" -N "$3" -t u"$3" "$1" | tr -d ' '
+}
+
+# wav_check <файл> <разрядность> — заголовок: RIFF, WAVE, PCM, один канал, 44100 Гц, разрядность;
+# заводит WAV_SECONDS — длительность по размеру данных
+wav_check() {
+	WAV_SECONDS=""
+	if [ "$(head -c 4 "$1")" != "RIFF" ] || [ "$(dd if="$1" bs=1 skip=8 count=4 2> /dev/null)" != "WAVE" ]; then
+		fail "$(basename "$1"): не файл WAV"
+		return
 	fi
-	if reply wdt_enable 2 | grep -Eq '^wdt: enabled, timeout 2000 ms$'; then
-		ok "wdt_enable 2000 отвечает wdt: enabled, timeout 2000 ms"
+	local format channels rate bits size
+	format="$(wav_field "$1" 20 2)"
+	channels="$(wav_field "$1" 22 2)"
+	rate="$(wav_field "$1" 24 4)"
+	bits="$(wav_field "$1" 34 2)"
+	size="$(wav_field "$1" 40 4)"
+	if [ "$format" = 1 ] && [ "$channels" = 1 ] && [ "$rate" = 44100 ] && [ "$bits" = "$2" ]; then
+		ok "$(basename "$1"): PCM, один канал, 44100 Гц, $bits бит"
 	else
-		fail "Ответ на wdt_enable 2000 не wdt: enabled, timeout 2000 ms"
+		fail "$(basename "$1"): формат $format, каналов $channels, $rate Гц, $bits бит, а нужно PCM, 1 канал, 44100 Гц, $2 бит"
+		note "Параметры файла задают setnchannels(), setframerate() и setsampwidth() модуля wave."
 	fi
-	U1="$(reply uptime 1 | sed -nE 's/^uptime: ([0-9]+) ms$/\1/p')"
-	U2="$(reply uptime 2 | sed -nE 's/^uptime: ([0-9]+) ms$/\1/p')"
-	if [ -n "$U1" ] && [ -n "$U2" ] && [ $(( U2 - U1 )) -ge 2500 ]; then
-		ok "Прибор работает дольше таймаута: uptime вырос на $(( U2 - U1 )) мс без сброса"
+	WAV_SECONDS="$(awk -v s="$size" -v b="$2" 'BEGIN { printf "%.2f", s / (b / 8) / 44100 }')"
+}
+
+for f in rec_audio.py recording.wav recording.log; do
+	if [ -f "$FW_SRC/$f" ]; then
+		ok "Файл $f на месте"
 	else
-		fail "После wdt_enable прибор не прожил дольше таймаута без сброса"
-		note "Суперцикл должен обновлять таймер на каждой итерации."
+		fail "В проекте нет файла $f"
 	fi
-	if reply hang 1 | grep -Eq '^hang: superloop stopped$'; then
-		ok "hang отвечает hang: superloop stopped"
+done
+
+SCRIPT="$FW_SRC/rec_audio.py"
+if [ -f "$SCRIPT" ]; then
+	PY="$(normalize "$SCRIPT")"
+	match "$PY" '^[[:space:]]*import wave|from wave' \
+		"rec_audio.py: файл пишет модуль wave" \
+		"rec_audio.py: нет import wave"
+fi
+
+if [ -f "$SCRIPT" ]; then
+	match "$PY" 'setsampwidth[[:space:]]*\([[:space:]]*2' \
+		"rec_audio.py: отсчёт WAV — 2 байта" \
+		"rec_audio.py: нет setsampwidth(2)"
+fi
+if [ -f "$FW_SRC/recording.wav" ]; then
+	wav_check "$FW_SRC/recording.wav" 16
+fi
+
+if device_log "$FW_SRC/recording.log" "3.2.7"; then
+	L="$DEVICE_LOG"
+	FILE="$(grep -E '^файл: ' "$L" | head -1)"
+	GOT="$(grep -E '^принято: пакетов [0-9]+, отсчётов [0-9]+, пропущено пакетов [0-9]+' "$L" | head -1)"
+	STOP="$(grep -E '^<-- stream: stopped, [0-9]+ packets, [0-9]+ samples, [0-9]+ overruns$' "$L" | head -1)"
+	if [ -z "$FILE" ] || [ -z "$GOT" ] || [ -z "$STOP" ]; then
+		fail "В логе нет строк «файл», «принято» или ответа stream: stopped"
+		note "Лог пишет rec_audio.py, запущенный с ключом --wav: имя лога — имя файла WAV с расширением .log."
 	else
-		fail "Ответ на hang не hang: superloop stopped"
-	fi
-	if grep -Eq '^[[:space:]]*[0-9.]+ --- плата снова на связи$' "$DEVICE_LOG"; then
-		ok "После hang плата перезапустилась"
-	else
-		fail "После hang плата не перезапустилась"
-		note "Сторожевой таймер должен быть включён, а обновлять его — только суперцикл."
-	fi
-	if reply reset_reason 2 | grep -Eq '^reset: watchdog, restarts [1-9][0-9]*$'; then
-		ok "После перезапуска reset_reason: причина — сторожевой таймер"
-	else
-		fail "После перезапуска reset_reason не reset: watchdog, restarts <не меньше 1>"
-		note "watchdog_caused_reboot() правдив и после прошивки через picotool, нужна watchdog_enable_caused_reboot()."
-	fi
-	U3="$(reply uptime 3 | sed -nE 's/^uptime: ([0-9]+) ms$/\1/p')"
-	if [ -n "$U3" ] && [ "$U3" -lt 10000 ]; then
-		ok "После перезапуска uptime начался заново: $U3 мс"
-	else
-		fail "После перезапуска uptime не начался заново"
+		LOST="$(echo "$GOT" | sed -E 's/.*пропущено пакетов ([0-9]+).*/\1/')"
+		OVER="$(echo "$STOP" | sed -E 's/.* ([0-9]+) overruns/\1/')"
+		SECONDS_LOG="$(echo "$FILE" | sed -E 's/.*Гц, ([0-9.]+) с.*/\1/')"
+		if [ "$LOST" -eq 0 ] && [ "$OVER" -eq 0 ]; then
+			ok "Запись без пропущенных пакетов и переполнений"
+		else
+			fail "В записи пропущено пакетов $LOST, переполнений $OVER"
+			note "Запись с пропусками звучит с щелчками и короче, чем шла."
+		fi
+		if [ -n "${WAV_SECONDS:-}" ] && awk -v a="$WAV_SECONDS" -v b="$SECONDS_LOG" 'BEGIN { d = a - b; if (d < 0) d = -d; exit !(a >= 2.5 && d <= 0.05) }'; then
+			ok "Длительность записи $WAV_SECONDS с совпадает с логом"
+		else
+			fail "Длительность файла ${WAV_SECONDS:-?} с, в логе $SECONDS_LOG с, нужно не меньше 2,5 с"
+		fi
+		if grep -Eq '^<-- stream: started, 44100 Hz, 16 bit$' "$L"; then
+			ok "Запись шла 16-битным потоком"
+		else
+			fail "В логе нет ответа stream: started, 44100 Hz, 16 bit"
+		fi
 	fi
 fi
 

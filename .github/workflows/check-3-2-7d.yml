@@ -1,4 +1,4 @@
-name: Проверка 3.2.6д Запись в 8 бит
+name: Проверка 3.2.7д Запись в 8 бит
 
 on:
   workflow_call:
@@ -38,7 +38,7 @@ jobs:
         uses: ant-lab-ru/es-test/.github/actions/pico-toolchain@master
 
       - name: Проверка
-        run: es-test/checks/check-3-2-6d.sh student "${{ inputs.project }}"
+        run: es-test/checks/check-3-2-7d.sh student "${{ inputs.project }}"
         env:
           CHECKS_JSON: ${{ runner.temp }}/report.json
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Задание п3.2.6д «Запись в 8 бит».
+# Задание п3.2.7д «Запись в 8 бит».
 # rec_audio.py принимает поток рекордера и сохраняет запись в recording-8bit.wav (8 бит, 44100 Гц),
 # итог — в recording-8bit.log. Сборка не нужна: проверка читает заголовок WAV и лог.
-# Использование: check-3-2-6д.sh <путь к репозиторию> [папка проекта]
+# Использование: check-3-2-7d.sh <путь к репозиторию> [папка проекта]
 set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
@@ -11,7 +11,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/device.sh"
 . "$LIB/firmware.sh"
 
-fw_start "Задание 3.2.6д — Запись в 8 бит" 321-audio-recorder "${1:-.}" "${2:-}"
+fw_start "Задание 3.2.7д — Запись в 8 бит" 321-audio-recorder "${1:-.}" "${2:-}"
 
 # wav_field <файл> <смещение> <байтов: 2 или 4> — число из заголовка WAV, младшим байтом вперёд
 wav_field() {
@@ -71,7 +71,7 @@ if [ -f "$FW_SRC/recording-8bit.wav" ]; then
 	wav_check "$FW_SRC/recording-8bit.wav" 8
 fi
 
-if device_log "$FW_SRC/recording-8bit.log" "3.2.6д"; then
+if device_log "$FW_SRC/recording-8bit.log" "3.2.7д"; then
 	L="$DEVICE_LOG"
 	FILE="$(grep -E '^файл: ' "$L" | head -1)"
 	GOT="$(grep -E '^принято: пакетов [0-9]+, отсчётов [0-9]+, пропущено пакетов [0-9]+' "$L" | head -1)"

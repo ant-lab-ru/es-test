@@ -37,6 +37,14 @@ if [ -n "$PLATFORM_C" ]; then
 	match "$PLAT" 'channel_config_set_chain_to[[:space:]]*\(' \
 		"platform.c: каналы потока связаны цепочкой" \
 		"platform.c: нет channel_config_set_chain_to()"
+	# остановка потока: перед прерыванием каналов цепочка разорвана (RP2040-E13)
+	STOP_BODY="$(awk '/void[[:space:]]+platform_stream_stop[[:space:]]*\(/ { on = 1 } on { print } on && /^}/ { exit }' "$PLAT")"
+	if echo "$STOP_BODY" | grep -Eq 'channel_config_set_chain_to[[:space:]]*\(' && echo "$STOP_BODY" | grep -Eq 'dma_channel_abort[[:space:]]*\('; then
+		ok "platform.c: перед остановкой потока цепочка каналов разорвана"
+	else
+		fail "platform.c: platform_stream_stop() прерывает каналы, не разорвав цепочку"
+		note "Из-за RP2040-E13 прерванный канал запускает соседний, и тот остаётся взведённым. Следующий захват пишет за конец буфера (п3.2.4, врезка о разрыве цепочки)."
+	fi
 	match "$PLAT" 'dma_channel_set_write_addr[[:space:]]*\(' \
 		"platform.c: обработчик возвращает каналу начало буфера" \
 		"platform.c: нет dma_channel_set_write_addr()"
@@ -44,7 +52,7 @@ if [ -n "$PLATFORM_C" ]; then
 		ok "platform.c: байты уходят в порт без замены \\n на \\r\\n"
 	else
 		fail "platform.c: не видно отправки без замены \\n на \\r\\n"
-		note "printf() и fwrite() заменяют байт 0A парой 0D 0A. Двоичные данные — stdio_put_string(…, false, false) (т3.2.6)."
+		note "printf() и fwrite() заменяют байт 0A парой 0D 0A. Двоичные данные — stdio_put_string(…, false, false) (т3.2.7)."
 	fi
 fi
 if [ -n "$TASK_C" ] && grep -Eq 'printf|puts[[:space:]]*\(|fwrite' "$(fw_code "$TASK_C")"; then

@@ -1,4 +1,4 @@
-name: Проверка 3.2.6 Запись звука
+name: Проверка 3.2.6 Сторожевой таймер
 
 on:
   workflow_call:
@@ -20,7 +20,7 @@ on:
 
 jobs:
   check:
-    name: Запись звука
+    name: Сторожевой таймер
     runs-on: ubuntu-latest
     steps:
       - name: Репозиторий обучающегося

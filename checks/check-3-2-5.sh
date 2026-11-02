@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Задание п3.2.5 «Подключение микрофона».
-# Модуль MAX9814 подключён к GP26. Команды mic_bias и mic_level [<ms>] снимают блок
-# через DMA задачей block-task и отвечают смещением и уровнем сигнала.
-# Читает код, собирает проект и разбирает лог: смещение 1,0–1,5 В (микрофон подключён),
-# формат уровня, окно в миллисекундах, ошибки аргументов.
+# Задание п3.2.5 «Запись испытательного сигнала».
+# Вывод GP20 отдан блоку ШИМ, команда generate_tone <Hz> держит на нём тон, перемычка ведёт
+# тон на GP26. rec_audio.py --melody играет припев и сохраняет его в melody.wav, итог — в melody.log.
+# Читает код и собирает проект, читает заголовок WAV и лог, находит в записи ноты
+# и сравнивает их частоты с нотами припева.
 # Использование: check-3-2-5.sh <путь к репозиторию> [папка проекта]
 set -u
 
@@ -11,88 +11,168 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
 . "$LIB/build.sh"
 . "$LIB/code.sh"
-. "$LIB/cmake.sh"
 . "$LIB/device.sh"
-. "$LIB/exchange.sh"
 . "$LIB/firmware.sh"
-. "$LIB/handlers.sh"
 
+fw_start "Задание 3.2.5 — Запись испытательного сигнала" 321-audio-recorder "${1:-.}" "${2:-}"
 
-fw_start "Задание 3.2.5 — Подключение микрофона" 321-audio-recorder "${1:-.}" "${2:-}"
-
+fw_need PLATFORM_C platform.c
 fw_need API_C api-callbacks.c
-for f in check-3-2-5.py device-3-2-5.log; do
-	if [ -f "$FW_SRC/$f" ]; then
-		ok "Файл $f на месте"
+
+if [ -n "$PLATFORM_C" ]; then
+	PLATFORM="$(fw_code "$PLATFORM_C")"
+	if grep -Eq 'GPIO_FUNC_PWM' "$PLATFORM" &&
+		grep -Eq '#define[[:space:]]+[A-Z_]*PIN[[:space:]]+20([^0-9]|$)|gpio_set_function[[:space:]]*\([[:space:]]*20[[:space:]]*,' "$PLATFORM"; then
+		ok "platform: вывод GP20 отдан блоку ШИМ"
 	else
-		fail "В проекте нет файла $f"
+		fail "platform: вывод GP20 не отдан блоку ШИМ"
+		note "Вывод отдаёт блоку ШИМ gpio_set_function(<вывод>, GPIO_FUNC_PWM), разобрано в т3.2.3."
 	fi
-done
+	if grep -Eq 'pwm_set_wrap[[:space:]]*\(' "$PLATFORM" && grep -Eq 'pwm_set_(gpio|chan)_level[[:space:]]*\(' "$PLATFORM"; then
+		ok "platform: тон задают период и порог блока ШИМ"
+	else
+		fail "platform: нет pwm_set_wrap() и pwm_set_gpio_level()"
+		note "Период тона — wrap блока ШИМ, половина периода — порог."
+	fi
+fi
+
 if [ -n "$API_C" ]; then
 	API="$(fw_code "$API_C")"
-	if [ "$(grep -Ec 'block_task_start[[:space:]]*\(' "$API")" -ge 1 ] && grep -Eq '"mic_bias"' "$API" && grep -Eq '"mic_level"' "$API"; then
-		ok "api: mic_bias и mic_level снимают блок задачей block-task"
+	if grep -Eq '"generate_tone"' "$API"; then
+		ok "api: команда generate_tone в таблице команд"
 	else
-		fail "api: нет команд mic_bias и mic_level на задаче block-task"
-		note "Блок отсчётов уже умеет снимать задача из п3.2.3, ей передаётся другая функция для готового блока."
+		fail "api: нет команды generate_tone"
 	fi
-	if grep -Eq '(^|[^a-z_])(adc|dma)_[a-z_]+[[:space:]]*\(' "$API"; then
-		fail "api-callbacks.c: команды обращаются к АЦП или DMA напрямую"
+	if grep -Eq '(^|[^a-z_])pwm_[a-z_]+[[:space:]]*\(' "$API"; then
+		fail "api-callbacks.c: команда обращается к блоку ШИМ напрямую"
+		note "Блок ШИМ — железо, им место в platform."
 	else
-		ok "api-callbacks.c: к АЦП и DMA обращается только platform"
+		ok "api-callbacks.c: к блоку ШИМ обращается только platform"
 	fi
 fi
 
 LOGIC="$(mktemp)"
 find "$FW_SRC/logic" -type f \( -name '*.c' -o -name '*.h' \) 2>/dev/null | sort |
 	while read -r f; do cat "$(fw_code "$f")"; done > "$LOGIC"
-if grep -Eq '#include[[:space:]]*[<"](pico|hardware)/|(^|[^a-z_])(adc|dma)_[a-z_]+[[:space:]]*\(|time_us_' "$LOGIC"; then
+if grep -Eq '#include[[:space:]]*[<"](pico|hardware)/|(^|[^a-z_])(adc|dma|pwm)_[a-z_]+[[:space:]]*\(|time_us_' "$LOGIC"; then
 	fail "logic: код логики обращается к SDK"
-	note "АЦП, DMA и будильники — железо, им место в platform."
 else
 	ok "logic: логика по-прежнему без SDK"
 fi
 
-
 build_project "$FW_SRC"
 
-if device_log "$FW_SRC/device-3-2-5.log" "3.2.5"; then
-	TABLE="$(exchange_table "$DEVICE_LOG")"
-	reply() {
-		exchange_replies "$TABLE" "$1" "$2" | cut -f2 | tail -n +2
-	}
-	BIAS="$(reply mic_bias 1 | grep -E '^mic: bias [0-9]+\.[0-9]{3} V$' | sed -E 's/mic: bias ([0-9.]+) V/\1/')"
-	if [ -z "$BIAS" ]; then
-		fail "Ответ на mic_bias не mic: bias <напряжение> V"
-	elif awk -v b="$BIAS" 'BEGIN { exit !(b >= 1.0 && b <= 1.5) }'; then
-		ok "Смещение микрофона $BIAS В, у MAX9814 оно около 1,25 В"
+for f in rec_audio.py melody.wav melody.log; do
+	if [ -f "$FW_SRC/$f" ]; then
+		ok "Файл $f на месте"
 	else
-		fail "Смещение $BIAS В, а у MAX9814 оно около 1,25 В"
-		note "Похоже, микрофон не подключён: свободный вход GP26 показывает случайное напряжение. Проверьте провод Out → GP26, Vdd → 3V3(OUT) и GND."
+		fail "В проекте нет файла $f"
 	fi
-	# level_check <номер вызова> <окно, мс>
-	level_check() {
-		local line
-		line="$(reply mic_level "$1" | grep -E '^mic: level [0-9]+\.[0-9] mV rms, peak [0-9]+\.[0-9] mV, [0-9]+ ms$')"
-		if [ -z "$line" ]; then
-			fail "mic_level, окно $2 мс: ответ не mic: level <мВ> mV rms, peak <мВ> mV, <мс> ms"
-			return
-		fi
-		set -- "$@" $(echo "$line" | sed -E 's/mic: level ([0-9.]+) mV rms, peak ([0-9.]+) mV, ([0-9]+) ms/\1 \2 \3/')
-		if awk -v r="$3" -v p="$4" -v w="$5" -v want="$2" 'BEGIN { exit !(r <= p && r < 1650 && w >= want - 1 && w <= want) }'; then
-			ok "mic_level, окно $5 мс: $3 мВ среднеквадратично, пик $4 мВ"
-		else
-			fail "mic_level, окно $2 мс: $3 мВ среднеквадратично, пик $4 мВ, окно $5 мс не сходятся"
-			note "Уровень — отклонение от среднего блока. Среднеквадратичное не больше пикового."
-		fi
-	}
-	level_check 1 100
-	level_check 2 50
-	level_check 3 185
-	if reply mic_level 4 | grep -Eq '^error: ms must be 1\.\.185$' && reply mic_level 5 | grep -Eq '^error: ms must be 1\.\.185$'; then
-		ok "mic_level 0 и mic_level 200 отклонены: error: ms must be 1..185"
+done
+
+WAV="$FW_SRC/melody.wav"
+if [ -f "$WAV" ]; then
+	if [ "$(head -c 4 "$WAV")" != "RIFF" ] || [ "$(dd if="$WAV" bs=1 skip=8 count=4 2> /dev/null)" != "WAVE" ]; then
+		fail "melody.wav: не файл WAV"
 	else
-		fail "mic_level 0 или mic_level 200 не ответили error: ms must be 1..185"
+		FMT="$(od -An -j 20 -N 2 -t u2 "$WAV" | tr -d ' ') $(od -An -j 22 -N 2 -t u2 "$WAV" | tr -d ' ') $(od -An -j 24 -N 4 -t u4 "$WAV" | tr -d ' ') $(od -An -j 34 -N 2 -t u2 "$WAV" | tr -d ' ')"
+		if [ "$FMT" = "1 1 44100 16" ]; then
+			ok "melody.wav: PCM, один канал, 44100 Гц, 16 бит"
+		else
+			fail "melody.wav: формат, каналы, частота, разрядность — $FMT, а нужно 1 1 44100 16"
+		fi
+	fi
+fi
+
+if device_log "$FW_SRC/melody.log" "3.2.5"; then
+	L="$DEVICE_LOG"
+	GOT="$(grep -E '^принято: пакетов [0-9]+, отсчётов [0-9]+, пропущено пакетов [0-9]+' "$L" | head -1)"
+	STOP="$(grep -E '^<-- stream: stopped, [0-9]+ packets, [0-9]+ samples, [0-9]+ overruns$' "$L" | head -1)"
+	if [ -z "$GOT" ] || [ -z "$STOP" ]; then
+		fail "В логе нет строки «принято» или ответа stream: stopped"
+		note "Лог пишет rec_audio.py, запущенный с ключами --wav melody.wav --melody."
+	else
+		LOST="$(echo "$GOT" | sed -E 's/.*пропущено пакетов ([0-9]+).*/\1/')"
+		OVER="$(echo "$STOP" | sed -E 's/.* ([0-9]+) overruns/\1/')"
+		if [ "$LOST" -eq 0 ] && [ "$OVER" -eq 0 ]; then
+			ok "Запись без пропущенных пакетов и переполнений"
+		else
+			fail "В записи пропущено пакетов $LOST, переполнений $OVER"
+		fi
+	fi
+	if grep -Eq '^--> generate_tone: [0-9]+ команд' "$L"; then
+		ok "Мелодию играла команда generate_tone"
+	else
+		fail "В логе нет строки о командах generate_tone"
+		note "Запустите скрипт с ключом --melody."
+	fi
+fi
+
+# Ноты в записи: участки звука между паузами, частота каждого — по переходам через ноль.
+# Порядок и частоты нот припева — по таблице задания, допуск 1 %.
+if [ -f "$WAV" ]; then
+	NOTES="$(python3 - "$WAV" <<'EOF'
+import struct, sys, wave
+
+EXPECTED = [659, 698, 587, 659, 659, 698, 587, 659, 523, 494, 587,
+            659, 698, 587, 659, 523, 587, 494, 494, 415, 349, 330,
+            659, 698, 587, 659, 659, 698, 587, 659, 523, 494, 587,
+            330, 587, 523, 523, 494, 587, 523, 494, 440, 440]
+
+w = wave.open(sys.argv[1])
+if w.getsampwidth() != 2:
+    print("ERR запись не 16-битная"); sys.exit()
+n = w.getnframes()
+x = struct.unpack("<%dh" % n, w.readframes(n))
+rate = w.getframerate()
+
+# размах в окнах по 5 мс, звук — размах больше четверти наибольшего
+B = rate // 200
+spans = [max(x[i:i + B]) - min(x[i:i + B]) for i in range(0, n - B, B)]
+level = max(spans) / 4 if spans else 0
+notes, start = [], None
+for k, s in enumerate(spans + [0]):
+    if s > level and start is None:
+        start = k
+    elif s <= level and start is not None:
+        if k - start >= 4:
+            notes.append((start * B, k * B))
+        start = None
+
+found = []
+for a, b in notes:
+    # края ноты отбрасываются: там фильтр постоянной составляющей ещё не успокоился
+    a += rate // 100
+    b -= rate // 200
+    seg = x[a:b]
+    ups = [i + seg[i - 1] / (seg[i - 1] - seg[i]) for i in range(1, len(seg)) if seg[i - 1] < 0 <= seg[i]]
+    if len(ups) < 3:
+        found.append(0.0)
+    else:
+        found.append((len(ups) - 1) * rate / (ups[-1] - ups[0]))
+
+print("COUNT %d %d" % (len(found), len(EXPECTED)))
+bad = 0
+for i, (f, e) in enumerate(zip(found, EXPECTED)):
+    if abs(f - e) > e * 0.01:
+        bad += 1
+        if bad <= 3:
+            print("BAD нота %d: %.1f Гц, а нужно %d Гц" % (i + 1, f, e))
+print("BADS %d" % bad)
+EOF
+)"
+	COUNT="$(echo "$NOTES" | sed -nE 's/^COUNT ([0-9]+) ([0-9]+)$/\1 \2/p')"
+	set -- $COUNT
+	if echo "$NOTES" | grep -q '^ERR'; then
+		fail "melody.wav: $(echo "$NOTES" | sed -n 's/^ERR //p')"
+	elif [ "${1:-0}" != "${2:-x}" ]; then
+		fail "В записи найдено нот ${1:-0}, а в припеве ${2:-43}"
+		note "Ноты разделяет пауза в 40 мс. Если нот меньше, проверьте перемычку GP20 — GP26 и что тон выключается командой generate_tone 0."
+	elif [ "$(echo "$NOTES" | sed -n 's/^BADS //p')" = "0" ]; then
+		ok "Нот в записи $1, как в припеве, их частоты совпадают с точностью 1 %"
+	else
+		fail "Частоты нот не совпадают с припевом: $(echo "$NOTES" | sed -n 's/^BAD //p' | head -1)"
+		note "Если все ноты выше или ниже, частота отсчётов не 44 100 Гц или делитель блока ШИМ не 1 МГц."
 	fi
 fi
 
