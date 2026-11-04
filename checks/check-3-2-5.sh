@@ -86,18 +86,18 @@ fi
 
 if device_log "$FW_SRC/melody.log" "3.2.5"; then
 	L="$DEVICE_LOG"
-	GOT="$(grep -E '^принято: пакетов [0-9]+, отсчётов [0-9]+, пропущено пакетов [0-9]+' "$L" | head -1)"
-	STOP="$(grep -E '^<-- stream: stopped, [0-9]+ packets, [0-9]+ samples, [0-9]+ overruns$' "$L" | head -1)"
+	GOT="$(grep -E '^принято: кадров [0-9]+, отсчётов [0-9]+, пропущено кадров [0-9]+' "$L" | head -1)"
+	STOP="$(grep -E '^<-- stream: stopped, [0-9]+ frames, [0-9]+ samples, [0-9]+ overruns$' "$L" | head -1)"
 	if [ -z "$GOT" ] || [ -z "$STOP" ]; then
 		fail "В логе нет строки «принято» или ответа stream: stopped"
 		note "Лог пишет rec_audio.py, запущенный с ключами --wav melody.wav --melody."
 	else
-		LOST="$(echo "$GOT" | sed -E 's/.*пропущено пакетов ([0-9]+).*/\1/')"
+		LOST="$(echo "$GOT" | sed -E 's/.*пропущено кадров ([0-9]+).*/\1/')"
 		OVER="$(echo "$STOP" | sed -E 's/.* ([0-9]+) overruns/\1/')"
 		if [ "$LOST" -eq 0 ] && [ "$OVER" -eq 0 ]; then
-			ok "Запись без пропущенных пакетов и переполнений"
+			ok "Запись без пропущенных кадров и переполнений"
 		else
-			fail "В записи пропущено пакетов $LOST, переполнений $OVER"
+			fail "В записи пропущено кадров $LOST, переполнений $OVER"
 		fi
 	fi
 	if grep -Eq '^--> generate_tone: [0-9]+ команд' "$L"; then

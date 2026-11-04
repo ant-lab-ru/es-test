@@ -74,19 +74,19 @@ fi
 if device_log "$FW_SRC/recording-8bit.log" "3.2.7д"; then
 	L="$DEVICE_LOG"
 	FILE="$(grep -E '^файл: ' "$L" | head -1)"
-	GOT="$(grep -E '^принято: пакетов [0-9]+, отсчётов [0-9]+, пропущено пакетов [0-9]+' "$L" | head -1)"
-	STOP="$(grep -E '^<-- stream: stopped, [0-9]+ packets, [0-9]+ samples, [0-9]+ overruns$' "$L" | head -1)"
+	GOT="$(grep -E '^принято: кадров [0-9]+, отсчётов [0-9]+, пропущено кадров [0-9]+' "$L" | head -1)"
+	STOP="$(grep -E '^<-- stream: stopped, [0-9]+ frames, [0-9]+ samples, [0-9]+ overruns$' "$L" | head -1)"
 	if [ -z "$FILE" ] || [ -z "$GOT" ] || [ -z "$STOP" ]; then
 		fail "В логе нет строк «файл», «принято» или ответа stream: stopped"
 		note "Лог пишет rec_audio.py, запущенный с ключом --wav: имя лога — имя файла WAV с расширением .log."
 	else
-		LOST="$(echo "$GOT" | sed -E 's/.*пропущено пакетов ([0-9]+).*/\1/')"
+		LOST="$(echo "$GOT" | sed -E 's/.*пропущено кадров ([0-9]+).*/\1/')"
 		OVER="$(echo "$STOP" | sed -E 's/.* ([0-9]+) overruns/\1/')"
 		SECONDS_LOG="$(echo "$FILE" | sed -E 's/.*Гц, ([0-9.]+) с.*/\1/')"
 		if [ "$LOST" -eq 0 ] && [ "$OVER" -eq 0 ]; then
-			ok "Запись без пропущенных пакетов и переполнений"
+			ok "Запись без пропущенных кадров и переполнений"
 		else
-			fail "В записи пропущено пакетов $LOST, переполнений $OVER"
+			fail "В записи пропущено кадров $LOST, переполнений $OVER"
 			note "Запись с пропусками звучит с щелчками и короче, чем шла."
 		fi
 		if [ -n "${WAV_SECONDS:-}" ] && awk -v a="$WAV_SECONDS" -v b="$SECONDS_LOG" 'BEGIN { d = a - b; if (d < 0) d = -d; exit !(a >= 2.5 && d <= 0.05) }'; then
@@ -100,11 +100,11 @@ if device_log "$FW_SRC/recording-8bit.log" "3.2.7д"; then
 			fail "В логе нет ответа stream: started, 44100 Hz, 8 bit"
 			note "8-битный поток запускает stream_start 8, rec_audio.py — с ключом --bits 8."
 		fi
-		set -- $(echo "$GOT" | sed -E 's/принято: пакетов ([0-9]+), отсчётов ([0-9]+).*/\1 \2/')
+		set -- $(echo "$GOT" | sed -E 's/принято: кадров ([0-9]+), отсчётов ([0-9]+).*/\1 \2/')
 		if [ "$2" -eq $(( $1 * 1024 )) ]; then
-			ok "В каждом 8-битном пакете 1024 отсчёта"
+			ok "В каждом 8-битном кадре 1024 отсчёта"
 		else
-			fail "Отсчётов $2 на $1 пакетов, а в 8-битном пакете их 1024"
+			fail "Отсчётов $2 на $1 кадров, а в 8-битном кадре их 1024"
 		fi
 	fi
 fi
