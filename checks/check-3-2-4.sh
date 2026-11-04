@@ -52,7 +52,7 @@ if [ -n "$PLATFORM_C" ]; then
 		ok "platform.c: байты уходят в порт без замены \\n на \\r\\n"
 	else
 		fail "platform.c: не видно отправки без замены \\n на \\r\\n"
-		note "printf() и fwrite() заменяют байт 0A парой 0D 0A. Двоичные данные — stdio_put_string(…, false, false) (т3.2.7)."
+		note "printf() и fwrite() заменяют байт 0A парой 0D 0A. Двоичные данные — stdio_put_string(…, false, false) (т3.2.8)."
 	fi
 fi
 if [ -n "$TASK_C" ] && grep -Eq 'printf|puts[[:space:]]*\(|fwrite' "$(fw_code "$TASK_C")"; then
