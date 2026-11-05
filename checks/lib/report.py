@@ -12,6 +12,20 @@ import os
 import sys
 from datetime import datetime, timezone
 
+from repo_stats import repo_stats, unshallow
+
+
+def summary(repo):
+    """Сводка по репозиторию; не посчиталась — пусто. На итог задания она не влияет."""
+    if not repo:
+        return {}
+    try:
+        unshallow(repo)
+        return repo_stats(repo)
+    except Exception as error:
+        print(f'Сводка по репозиторию пропущена: {error}', file=sys.stderr)
+        return {}
+
 
 def main():
     p = argparse.ArgumentParser()
@@ -21,6 +35,7 @@ def main():
     p.add_argument('--total', type=int, required=True)
     p.add_argument('--warned', type=int, default=0)
     p.add_argument('--items', required=True)      # файл с пунктами
+    p.add_argument('--repo', default='')          # репозиторий обучающегося
     args = p.parse_args()
 
     items = []
@@ -52,6 +67,7 @@ def main():
         'commit': os.environ.get('GITHUB_SHA', ''),
         'run_url': f'{server}/{repo}/actions/runs/{run_id}' if repo and run_id else '',
         'finished_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+        **summary(args.repo),
     }
     json.dump(report, sys.stdout, ensure_ascii=False, indent=2, sort_keys=True)
     sys.stdout.write('\n')

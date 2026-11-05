@@ -11,6 +11,9 @@ CHECKS_TASK="$(basename "$0" .sh | sed 's/^check-//; s/-/./g')"
 # Пункты для JSON-отчёта копятся отдельным файлом (см. report.py).
 CHECKS_ITEMS="${CHECKS_JSON:+${CHECKS_JSON}.items}"
 [ -n "$CHECKS_ITEMS" ] && : > "$CHECKS_ITEMS"
+# Путь к репозиторию — первый аргумент проверки. Запоминаем здесь: внутри finish
+# позиционные аргументы уже её собственные.
+CHECKS_REPO="$(cd "${1:-.}" 2> /dev/null && pwd)"
 
 # item <ok|fail> <текст> — строка для JSON-отчёта, если сборка отчёта включена
 item() {
@@ -98,7 +101,7 @@ finish() {
 			--task "$CHECKS_TASK" --title "$title" \
 			--passed "$CHECKS_PASSED" --total "$total" \
 			--warned "$CHECKS_WARNED" \
-			--items "$CHECKS_ITEMS" > "$CHECKS_JSON"
+			--items "$CHECKS_ITEMS" --repo "$CHECKS_REPO" > "$CHECKS_JSON"
 	fi
 
 	[ "$CHECKS_FAILED" -eq 0 ]
