@@ -27,7 +27,7 @@ for f in main.c clock/clock.c clock/clock.h check-2-2-2.py device-2-2-2.log; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 

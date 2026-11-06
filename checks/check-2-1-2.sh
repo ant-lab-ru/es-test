@@ -6,6 +6,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/device.sh"
 
@@ -25,20 +26,20 @@ for f in main.c check-2-1-2.py device-2-1-2.log; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 	# Объявление типа и таблица занимают несколько строк, поэтому часть пунктов
 	# читается по файлу со схлопнутыми переводами строк.
 	# Тип команды объявлен в main.c, а начиная с п2.1.4 переезжает в command.h:
 	# проверку типов ведём по обоим файлам, чтобы она не краснела на сданной работе.
 	TYPES="$(mktemp)"
 	cat "$MAIN" > "$TYPES"
-	[ -f "$SRC/command.h" ] && normalize "$SRC/command.h" | xargs cat >> "$TYPES"
+	[ -f "$SRC/command.h" ] && cat "$(code_only "$(normalize "$SRC/command.h")")" >> "$TYPES"
 
 	FLAT="$(mktemp)"
 	tr '\n' ' ' < "$TYPES" > "$FLAT"

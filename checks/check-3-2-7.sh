@@ -26,7 +26,7 @@ for f in check-3-2-7.py device-3-2-7.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 if [ -n "$API_C" ]; then
@@ -132,20 +132,20 @@ for f in rec_audio.py recording.wav recording.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 SCRIPT="$FW_SRC/rec_audio.py"
 if [ -f "$SCRIPT" ]; then
-	PY="$(normalize "$SCRIPT")"
-	match "$PY" '^[[:space:]]*import wave|from wave' \
+	PY="$(python_only "$(normalize "$SCRIPT")")"
+	script_match "$PY" '^[[:space:]]*import wave|from wave' \
 		"rec_audio.py: файл пишет модуль wave" \
 		"rec_audio.py: нет import wave"
 fi
 
 if [ -f "$SCRIPT" ]; then
-	match "$PY" 'setsampwidth[[:space:]]*\([[:space:]]*2' \
+	script_match "$PY" 'setsampwidth[[:space:]]*\([[:space:]]*2' \
 		"rec_audio.py: отсчёт WAV — 2 байта" \
 		"rec_audio.py: нет setsampwidth(2)"
 fi

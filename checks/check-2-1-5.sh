@@ -6,6 +6,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/device.sh"
 
@@ -25,13 +26,13 @@ for f in device/device.h device/device.c main.c check-2-1-5.py device-2-1-5.log;
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 HEADER="$SRC/device/device.h"
 if [ -f "$HEADER" ]; then
-	HEADER="$(normalize "$HEADER")"
+	HEADER="$(code_only "$(normalize "$HEADER")")"
 	FLAT="$(mktemp)"
 	tr '\n' ' ' < "$HEADER" > "$FLAT"
 
@@ -70,7 +71,7 @@ fi
 
 BODY="$SRC/device/device.c"
 if [ -f "$BODY" ]; then
-	BODY="$(normalize "$BODY")"
+	BODY="$(code_only "$(normalize "$BODY")")"
 
 	match "$BODY" 'struct[[:space:]]+info_t[[:space:]]+device_card[[:space:]]*=' \
 		"device.c: переменная device_card заведена и заполнена" \
@@ -101,7 +102,7 @@ fi
 # Паспорт принадлежит модулю device: раскладку печатает он, а не модуль памяти.
 BODY="$SRC/memory/memory.c"
 if [ -f "$BODY" ]; then
-	BODY="$(normalize "$BODY")"
+	BODY="$(code_only "$(normalize "$BODY")")"
 	if grep -Eq 'device_card' "$BODY"; then
 		fail "memory.c: модуль памяти знает про device_card"
 		note "Структура — дело модуля device: раскладку печатает dev_info, а fw_info остаётся прежней."
@@ -112,7 +113,7 @@ fi
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 	match "$MAIN" '"dev_info"' \
 		"main.c: команда dev_info есть в таблице команд" \
 		"main.c: в таблице команд нет dev_info"

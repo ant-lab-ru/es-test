@@ -6,6 +6,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/cmake.sh"
 
@@ -25,13 +26,13 @@ for f in main.c CMakeLists.txt memmap_rp2040.ld pico_sdk_import.cmake led/led.h 
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 HEADER="$SRC/led/led.h"
 if [ -f "$HEADER" ]; then
-	HEADER="$(normalize "$HEADER")"
+	HEADER="$(code_only "$(normalize "$HEADER")")"
 	MISSING=""
 	for fn in led_init led_set led_toggle led_is_on; do
 		grep -Eq "$fn[[:space:]]*\(" "$HEADER" || MISSING="$MISSING $fn"
@@ -48,7 +49,7 @@ fi
 
 BODY="$SRC/led/led.c"
 if [ -f "$BODY" ]; then
-	BODY="$(normalize "$BODY")"
+	BODY="$(code_only "$(normalize "$BODY")")"
 	match "$BODY" 'gpio_put[[:space:]]*\(' \
 		"led.c: состоянием вывода светодиода управляет модуль" \
 		"led.c: в модуле нет вызова gpio_put"
@@ -59,7 +60,7 @@ fi
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 	match "$MAIN" '#include[[:space:]]*"led\.h"' \
 		"main.c: подключён заголовочный файл модуля" \
 		"main.c: нет #include \"led.h\""

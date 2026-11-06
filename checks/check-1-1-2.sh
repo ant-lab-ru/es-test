@@ -5,6 +5,7 @@
 set -u
 
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/report.sh"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/code.sh"
 
 TITLE="Задание 1.1.2 — Первый проект"
 REPO="${1:-.}"
@@ -23,7 +24,7 @@ for f in $EXPECTED; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
@@ -48,13 +49,13 @@ fi
 flatten() {
 	local out
 	out="$(mktemp)"
-	tr '\n' ' ' < "$(normalize "$1")" > "$out"
+	tr '\n' ' ' < "$1" > "$out"
 	echo "$out"
 }
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(flatten "$MAIN")"
+	MAIN="$(flatten "$(code_only "$(normalize "$MAIN")")")"
 	match "$MAIN" '#include[[:space:]]*"pico/stdlib\.h"' \
 		"main.c: подключена pico/stdlib.h" "main.c: не подключён заголовок pico/stdlib.h"
 	match "$MAIN" '#include[[:space:]]*"hardware/gpio\.h"' \
@@ -73,7 +74,7 @@ fi
 
 CMAKE="$SRC/CMakeLists.txt"
 if [ -f "$CMAKE" ]; then
-	CMAKE="$(flatten "$CMAKE")"
+	CMAKE="$(flatten "$(cmake_only "$(normalize "$CMAKE")")")"
 	match "$CMAKE" 'include[[:space:]]*\([[:space:]]*pico_sdk_import\.cmake' \
 		"CMakeLists.txt: подключён pico_sdk_import.cmake" "CMakeLists.txt: не подключён pico_sdk_import.cmake"
 	match "$CMAKE" 'pico_sdk_init[[:space:]]*\(' \

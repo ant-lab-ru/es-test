@@ -66,7 +66,7 @@ for f in rec_audio.py melody.wav melody.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 

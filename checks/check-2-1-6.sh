@@ -6,6 +6,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/device.sh"
 
@@ -25,13 +26,13 @@ for f in memory/memory.c led/led.c led/led.h check-2-1-6.py device-2-1-6.log; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 BODY="$SRC/memory/memory.c"
 if [ -f "$BODY" ]; then
-	BODY="$(normalize "$BODY")"
+	BODY="$(code_only "$(normalize "$BODY")")"
 
 	match "$BODY" 'boot_info[[:space:]]*\(' \
 		"memory.c: написана функция boot_info" \
@@ -84,7 +85,7 @@ fi
 
 HEADER="$SRC/led/led.h"
 if [ -f "$HEADER" ]; then
-	HEADER="$(normalize "$HEADER")"
+	HEADER="$(code_only "$(normalize "$HEADER")")"
 	match "$HEADER" 'led_pin[[:space:]]*\([[:space:]]*void[[:space:]]*\)' \
 		"led.h: объявлена функция led_pin" \
 		"led.h: нет объявления led_pin"
@@ -99,7 +100,7 @@ fi
 
 BODY="$SRC/led/led.c"
 if [ -f "$BODY" ]; then
-	BODY="$(normalize "$BODY")"
+	BODY="$(code_only "$(normalize "$BODY")")"
 	match "$BODY" 'led_pin[[:space:]]*\([[:space:]]*void[[:space:]]*\)' \
 		"led.c: функция led_pin написана" \
 		"led.c: нет функции led_pin"
@@ -107,7 +108,7 @@ fi
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 	match "$MAIN" '"boot_info"' \
 		"main.c: команда boot_info есть в таблице команд" \
 		"main.c: в таблице команд нет boot_info"

@@ -81,6 +81,30 @@ match() {
 	fi
 }
 
+# Скрипты Python пособие даёт готовыми, поэтому задание из-за них не падает: проверка
+# только замечает, что скрипт разошёлся с пособием.
+script_warn() {
+	warn "$1"
+	note "Скрипт дан в пособии готовым: сравните свой с текстом задания."
+}
+
+# script_match <файл> <выражение> <текст успеха> <текст замечания> — match для скрипта Python
+script_match() {
+	if grep -Eq "$2" "$1"; then
+		ok "$3"
+	else
+		script_warn "$4"
+	fi
+}
+
+# file_missing <имя> — пункт «файла нет»: провал, для скрипта Python — замечание
+file_missing() {
+	case "$1" in
+		*.py) script_warn "В проекте нет файла $1" ;;
+		*) fail "В проекте нет файла $1" ;;
+	esac
+}
+
 finish() {
 	local title="$1"
 	local total=$((CHECKS_PASSED + CHECKS_FAILED))

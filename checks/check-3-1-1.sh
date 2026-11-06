@@ -23,7 +23,7 @@ for f in platform/platform.h platform/platform.c logic/api/api-callbacks.c firmw
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 		note "Проект заводится копией папки 231-firmware-template, раскладка шаблона сохраняется."
 	fi
 done

@@ -45,14 +45,14 @@ for f in rec_audio.py recording-8bit.wav recording-8bit.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 SCRIPT="$FW_SRC/rec_audio.py"
 if [ -f "$SCRIPT" ]; then
-	PY="$(normalize "$SCRIPT")"
-	match "$PY" '^[[:space:]]*import wave|from wave' \
+	PY="$(python_only "$(normalize "$SCRIPT")")"
+	script_match "$PY" '^[[:space:]]*import wave|from wave' \
 		"rec_audio.py: файл пишет модуль wave" \
 		"rec_audio.py: нет import wave"
 fi

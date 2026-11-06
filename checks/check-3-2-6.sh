@@ -26,7 +26,7 @@ for f in main.c check-3-2-6.py device-3-2-6.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 if [ -n "$PLATFORM_C" ]; then

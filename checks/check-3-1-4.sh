@@ -10,6 +10,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/firmware.sh"
 
 fw_start "Задание 3.1.4 — Считывание данных в Python" 311-adc "${1:-.}" "${2:-}"
@@ -22,27 +23,27 @@ for f in get_telemetry.py telemetry.csv telemetry.png; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 		note "Скрипт и оба файла, которые он создаёт, лежат в папке проекта."
 	fi
 done
 
 SCRIPT="$FW_SRC/get_telemetry.py"
 if [ -f "$SCRIPT" ]; then
-	CODE="$(normalize "$SCRIPT")"
-	match "$CODE" '^[[:space:]]*(import serial|from serial)' \
+	CODE="$(python_only "$(normalize "$SCRIPT")")"
+	script_match "$CODE" '^[[:space:]]*(import serial|from serial)' \
 		"get_telemetry.py: порт открывается библиотекой pyserial" \
 		"get_telemetry.py: нет import serial"
-	match "$CODE" 'matplotlib' \
+	script_match "$CODE" 'matplotlib' \
 		"get_telemetry.py: график строит matplotlib" \
 		"get_telemetry.py: не видно matplotlib"
 	if grep -q 'tm_start' "$CODE" && grep -q 'tm_stop' "$CODE"; then
 		ok "get_telemetry.py: скрипт запускает и останавливает телеметрию"
 	else
-		fail "get_telemetry.py: не видно команд tm_start и tm_stop"
+		script_warn "get_telemetry.py: не видно команд tm_start и tm_stop"
 		note "Поток запускает и останавливает сам скрипт, человеку не нужно набирать команды."
 	fi
-	match "$CODE" '"tm:|'"'"'tm:' \
+	script_match "$CODE" '"tm:|'"'"'tm:' \
 		"get_telemetry.py: строки потока отбираются по началу tm:" \
 		"get_telemetry.py: не видно отбора строк по началу tm:"
 	if grep -q 'KeyboardInterrupt\|finally' "$CODE"; then
@@ -130,7 +131,7 @@ if [ -f "$SCRIPT" ] && [ -f "$CSV" ]; then
 			[ -f "$WORK/telemetry.png" ] && is_png "$WORK/telemetry.png"; then
 			ok "get_telemetry.py --plot telemetry.csv строит telemetry.png без платы"
 		else
-			fail "get_telemetry.py --plot telemetry.csv не построил telemetry.png"
+			script_warn "get_telemetry.py --plot telemetry.csv не построил telemetry.png"
 			note "В режиме --plot скрипт не ищет плату, а читает CSV и сохраняет график. Вывод запуска:"
 			tail -15 "$WORK/run.log"
 		fi

@@ -6,6 +6,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/cmake.sh"
 . "$LIB/device.sh"
@@ -26,13 +27,13 @@ for f in memory/memory.c command.h check-2-1-4.py device-2-1-4.log; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 BODY="$SRC/memory/memory.c"
 if [ -f "$BODY" ]; then
-	BODY="$(normalize "$BODY")"
+	BODY="$(code_only "$(normalize "$BODY")")"
 
 	match "$BODY" 'fw_info[[:space:]]*\(' \
 		"memory.c: написана функция fw_info" \
@@ -68,8 +69,7 @@ if [ -f "$BODY" ]; then
 		note "malloc возвращает нулевой указатель, когда места нет; запись по нему роняет прошивку."
 	fi
 
-	# Закомментированный вызов — не вызов: строка не должна начинаться с //
-	if grep -Eq '^[^/]*free[[:space:]]*\([[:space:]]*heap' "$BODY"; then
+	if grep -Eq 'free[[:space:]]*\([[:space:]]*heap' "$BODY"; then
 		ok "memory.c: блок возвращается в кучу вызовом free"
 	else
 		fail "memory.c: нет парного free — взятый блок не возвращён"
@@ -99,7 +99,7 @@ fi
 
 HEADER="$SRC/command.h"
 if [ -f "$HEADER" ]; then
-	HEADER="$(normalize "$HEADER")"
+	HEADER="$(code_only "$(normalize "$HEADER")")"
 	FLAT="$(mktemp)"
 	tr '\n' ' ' < "$HEADER" > "$FLAT"
 
@@ -127,7 +127,7 @@ fi
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 	match "$MAIN" '#include[[:space:]]*"command\.h"' \
 		"main.c: подключён command.h" \
 		"main.c: нет #include \"command.h\""

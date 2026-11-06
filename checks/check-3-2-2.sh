@@ -24,7 +24,7 @@ for f in check-3-2-2.py device-3-2-2.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 

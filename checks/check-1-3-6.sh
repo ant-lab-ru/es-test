@@ -6,6 +6,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/cmake.sh"
 . "$LIB/device.sh"
@@ -26,13 +27,13 @@ for f in logging/log.h logging/log.c check-1-3-6.py device-1-3-6.log; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 HEADER="$SRC/logging/log.h"
 if [ -f "$HEADER" ]; then
-	HEADER="$(normalize "$HEADER")"
+	HEADER="$(code_only "$(normalize "$HEADER")")"
 	MISSING=""
 	for macro in LOG_ERR LOG_INF LOG_DBG; do
 		grep -Eq "#define[[:space:]]+$macro" "$HEADER" || MISSING="$MISSING $macro"
@@ -59,7 +60,7 @@ fi
 
 BODY="$SRC/logging/log.c"
 if [ -f "$BODY" ]; then
-	BODY="$(normalize "$BODY")"
+	BODY="$(code_only "$(normalize "$BODY")")"
 	match "$BODY" '__DATE__' \
 		"log.c: в строке версии печатается дата сборки" "log.c: нет __DATE__"
 	match "$BODY" '__TIME__' \
@@ -72,7 +73,7 @@ fi
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 	match "$MAIN" '#include[[:space:]]*"log\.h"' \
 		"main.c: подключён заголовочный файл модуля журнала" \
 		"main.c: нет #include \"log.h\""

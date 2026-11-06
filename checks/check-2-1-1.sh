@@ -6,6 +6,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/cmake.sh"
 . "$LIB/device.sh"
@@ -26,13 +27,13 @@ for f in main.c device/device.c device/device.h led/led.c logging/log.c check-2-
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 
 	match "$MAIN" '#include[[:space:]]*<string\.h>' \
 		"main.c: подключён <string.h> — строки сравнивают его функцией" \
@@ -80,7 +81,7 @@ fi
 
 DEVICE="$SRC/device/device.c"
 if [ -f "$DEVICE" ]; then
-	DEVICE="$(normalize "$DEVICE")"
+	DEVICE="$(code_only "$(normalize "$DEVICE")")"
 	match "$DEVICE" 'PICO_SDK_VERSION_STRING' \
 		"device.c: в паспорт добавлена версия Pico SDK" \
 		"device.c: нет PICO_SDK_VERSION_STRING — от версии SDK зависят все адреса занятия"
@@ -88,7 +89,7 @@ fi
 
 HEADER="$SRC/device/device.h"
 if [ -f "$HEADER" ]; then
-	HEADER="$(normalize "$HEADER")"
+	HEADER="$(code_only "$(normalize "$HEADER")")"
 	match "$HEADER" 'DEVICE_PROJECT[[:space:]]+"211-command-usb"' \
 		"device.h: имя проекта в паспорте — 211-command-usb" \
 		"device.h: в DEVICE_PROJECT осталось имя проекта прошлого занятия"

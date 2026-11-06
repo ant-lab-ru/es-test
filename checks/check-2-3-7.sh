@@ -21,7 +21,7 @@ for f in platform/platform.h platform/platform.c logic/api/api.h logic/api/api.c
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 		note "Раскладка проекта задана в разделе 1 части 2 ТЗ."
 	fi
 done
@@ -134,7 +134,7 @@ fi
 
 NO_ONCE=""
 for f in $(find "$FW_SRC" "$FW_LIBS" -name '*.h' -not -path '*/build/*' 2>/dev/null | sort); do
-	grep -Eq '^[[:space:]]*#pragma[[:space:]]+once' "$(normalize "$f")" || NO_ONCE="$NO_ONCE $(basename "$f")"
+	grep -Eq '^[[:space:]]*#pragma[[:space:]]+once' "$(fw_code "$f")" || NO_ONCE="$NO_ONCE $(basename "$f")"
 done
 if [ -z "$NO_ONCE" ]; then
 	ok "Все заголовки защищены #pragma once"

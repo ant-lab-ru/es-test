@@ -28,7 +28,7 @@ for f in rec_audio.py stream.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
@@ -79,14 +79,14 @@ if [ -f "$MAIN" ]; then
 fi
 SCRIPT="$FW_SRC/rec_audio.py"
 if [ -f "$SCRIPT" ]; then
-	PY="$(normalize "$SCRIPT")"
-	match "$PY" '^[[:space:]]*import struct|from struct' \
+	PY="$(python_only "$(normalize "$SCRIPT")")"
+	script_match "$PY" '^[[:space:]]*import struct|from struct' \
 		"rec_audio.py: числа из байтов собирает struct" \
 		"rec_audio.py: нет import struct"
 	if grep -q 'stream_start' "$PY" && grep -q 'stream_stop' "$PY"; then
 		ok "rec_audio.py: скрипт запускает и останавливает поток"
 	else
-		fail "rec_audio.py: не видно stream_start и stream_stop"
+		script_warn "rec_audio.py: не видно stream_start и stream_stop"
 	fi
 fi
 

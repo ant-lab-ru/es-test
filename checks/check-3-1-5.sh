@@ -21,7 +21,7 @@ for f in platform/platform.c rc.py rc.csv rc.png rc.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 		note "rc.csv, rc.png и rc.log создаёт rc.py --r <кОм> --c <мкФ>."
 	fi
 done
@@ -52,11 +52,11 @@ fi
 
 SCRIPT="$FW_SRC/rc.py"
 if [ -f "$SCRIPT" ]; then
-	CODE="$(normalize "$SCRIPT")"
+	CODE="$(python_only "$(normalize "$SCRIPT")")"
 	if grep -q 'charge_on' "$CODE" && grep -q 'charge_off' "$CODE"; then
 		ok "rc.py: опыт ведёт скрипт, команды заряда отправляет сам"
 	else
-		fail "rc.py: не видно команд charge_on и charge_off"
+		script_warn "rc.py: не видно команд charge_on и charge_off"
 		note "Во время записи плату и цепь руками не трогают: заряд включает и выключает скрипт."
 	fi
 fi

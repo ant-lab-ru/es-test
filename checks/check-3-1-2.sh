@@ -20,7 +20,7 @@ for f in platform/platform.c logic/api/api-callbacks.c check-3-1-2.py device-3-1
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 

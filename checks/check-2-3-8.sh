@@ -23,7 +23,7 @@ for f in check-2-3-8.py device-2-3-8.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 		note "Раскладка проекта задана в разделе 1 части 2 ТЗ."
 	fi
 done
@@ -370,7 +370,7 @@ if [ -n "$BUILD_DIR" ]; then
 		cp -R "$FW_LIBS" "$COPY/libs"
 		rm -rf "$COPY/project/build"
 		sed -i.bak 's/PROFILING_ENABLED=1/PROFILING_ENABLED=0/' "$COPY/project/CMakeLists.txt"
-		if ! grep -q 'PROFILING_ENABLED=0' "$COPY/project/CMakeLists.txt"; then
+		if ! grep -q 'PROFILING_ENABLED=0' "$(cmake_only "$(normalize "$COPY/project/CMakeLists.txt")")"; then
 			fail "Ф6.3: в CMakeLists.txt нет строки PROFILING_ENABLED=1, которую можно переключить"
 			note "Выключатель задаёт target_compile_definitions(profiling PUBLIC PROFILING_ENABLED=1)."
 		elif cmake -S "$COPY/project" -B "$COPY/build" -G "Unix Makefiles" > "$COPY/cmake.log" 2>&1 &&

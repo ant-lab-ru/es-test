@@ -27,21 +27,21 @@ for f in main.c check-2-2-3.py device-2-2-3.log; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
-	CODE="$(code_only "$MAIN")"
+	RAW="$(normalize "$MAIN")"
+	CODE="$(code_only "$RAW")"
 
 	LINE="$(grep -nE 'CALC_PI_TERMS[[:space:]]*=?[[:space:]]*1000000' "$CODE" | head -1 | cut -d: -f1)"
 	if [ -n "$LINE" ]; then
 		ok "main.c: число членов ряда задано константой CALC_PI_TERMS = 1000000"
 		# Прикидка — комментарий в той же строке или в трёх строках над константой.
 		FROM=$((LINE > 3 ? LINE - 3 : 1))
-		if sed -n "${FROM},${LINE}p" "$MAIN" | grep -Eq '//|/\*'; then
+		if sed -n "${FROM},${LINE}p" "$RAW" | grep -Eq '//|/\*'; then
 			ok "main.c: рядом с CALC_PI_TERMS записана прикидка времени расчёта"
 		else
 			fail "main.c: рядом с CALC_PI_TERMS нет комментария с прикидкой"

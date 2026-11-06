@@ -27,7 +27,7 @@ for f in main.c clock/clock.c clock/clock.h check-2-2-5.py device-2-2-5.log; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
@@ -66,7 +66,7 @@ fi
 
 HEADER="$SRC/clock/clock.h"
 if [ -f "$HEADER" ]; then
-	HEADER="$(normalize "$HEADER")"
+	HEADER="$(code_only "$(normalize "$HEADER")")"
 	for fn in clk_sys_low clk_sys_default; do
 		match "$HEADER" "$fn[[:space:]]*\\([[:space:]]*void[[:space:]]*\\)" \
 			"clock.h: объявлена функция $fn" \
