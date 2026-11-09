@@ -161,8 +161,9 @@ fi
 
 BUTTON_DIR="$FW_SRC/logic/button-task"
 if [ -f "$BUTTON_DIR/button-task.c" ]; then
-	if grep -Eq '(^|[^a-z])led' "$(fw_join button-task.c button-task.h)"; then
-		fail "Задача кнопки знает о светодиоде"
+	if grep -Eo '#include[[:space:]]*"[a-z0-9-]+-task/' "$(fw_join button-task.c button-task.h)" |
+		grep -qv '"button-task/'; then
+		fail "Задача кнопки подключает заголовок другой задачи"
 		note "О нажатии задача сообщает функцией, переданной при запуске. Какой, решает main.c."
 	else
 		ok "Задача кнопки о светодиоде не знает: о нажатии сообщает функцией"
