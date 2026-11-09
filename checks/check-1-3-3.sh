@@ -7,6 +7,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/cmake.sh"
 . "$LIB/device.sh"
@@ -27,13 +28,13 @@ for f in main.c CMakeLists.txt memmap_rp2040.ld pico_sdk_import.cmake check-1-3-
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 CMAKE="$SRC/CMakeLists.txt"
 if [ -f "$CMAKE" ]; then
-	CMAKE="$(normalize "$CMAKE")"
+	CMAKE="$(cmake_only "$(normalize "$CMAKE")")"
 	match "$CMAKE" 'pico_enable_stdio_usb[[:space:]]*\([^)]*1[[:space:]]*\)' \
 		"CMakeLists.txt: вывод через USB включён" \
 		"CMakeLists.txt: нет pico_enable_stdio_usb с единицей — вывод в USB не попадёт"
@@ -41,7 +42,7 @@ fi
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 
 	match "$MAIN" '#include[[:space:]]*<stdio\.h>' \
 		"main.c: подключён заголовочный файл stdio.h" \

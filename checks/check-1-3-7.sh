@@ -7,6 +7,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/cmake.sh"
 . "$LIB/device.sh"
@@ -27,13 +28,13 @@ for f in device/device.h device/device.c check-1-3-7.py device-1-3-7.log; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 HEADER="$SRC/device/device.h"
 if [ -f "$HEADER" ]; then
-	HEADER="$(normalize "$HEADER")"
+	HEADER="$(code_only "$(normalize "$HEADER")")"
 	match "$HEADER" 'DEVICE_PROJECT|PROJECT_NAME' \
 		"device.h: задано название проекта" "device.h: нет константы с названием проекта"
 	match "$HEADER" 'https?://' \
@@ -53,7 +54,7 @@ fi
 
 BODY="$SRC/device/device.c"
 if [ -f "$BODY" ]; then
-	BODY="$(normalize "$BODY")"
+	BODY="$(code_only "$(normalize "$BODY")")"
 	match "$BODY" 'pico_get_unique_board_id_string[[:space:]]*\(' \
 		"device.c: серийный номер платы читается из чипа" \
 		"device.c: нет вызова pico_get_unique_board_id_string()"
@@ -76,7 +77,7 @@ fi
 
 LOGC="$SRC/logging/log.c"
 if [ -f "$LOGC" ]; then
-	LOGC="$(normalize "$LOGC")"
+	LOGC="$(code_only "$(normalize "$LOGC")")"
 	match "$LOGC" '#include[[:space:]]*"device\.h"' \
 		"log.c: имя и версия берутся из device.h" \
 		"log.c: нет #include \"device.h\" — имя и версия должны переехать в паспорт"
@@ -84,7 +85,7 @@ fi
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 	match "$MAIN" "'i'" \
 		"main.c: команда i разобрана" "main.c: нет разбора команды i"
 	match "$MAIN" '#include[[:space:]]*"device\.h"' \

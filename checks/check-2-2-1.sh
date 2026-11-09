@@ -6,6 +6,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/cmake.sh"
 . "$LIB/device.sh"
@@ -28,7 +29,7 @@ for f in main.c clock/clock.c clock/clock.h device/device.h check-2-2-1.py devic
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
@@ -55,7 +56,7 @@ fi
 
 HEADER="$SRC/device/device.h"
 if [ -f "$HEADER" ]; then
-	HEADER="$(normalize "$HEADER")"
+	HEADER="$(code_only "$(normalize "$HEADER")")"
 	match "$HEADER" 'DEVICE_PROJECT[[:space:]]+"221-command-time"' \
 		"device.h: имя проекта в паспорте — 221-command-time" \
 		"device.h: в DEVICE_PROJECT осталось имя проекта прошлого занятия"
@@ -69,7 +70,7 @@ fi
 
 BODY="$SRC/clock/clock.c"
 if [ -f "$BODY" ]; then
-	BODY="$(normalize "$BODY")"
+	BODY="$(code_only "$(normalize "$BODY")")"
 	match "$BODY" '#include[[:space:]]*"hardware/clocks\.h"' \
 		"clock.c: подключён hardware/clocks.h" \
 		"clock.c: нет #include \"hardware/clocks.h\" — в нём функции тактовых сигналов"
@@ -103,7 +104,7 @@ fi
 
 HEADER="$SRC/clock/clock.h"
 if [ -f "$HEADER" ]; then
-	HEADER="$(normalize "$HEADER")"
+	HEADER="$(code_only "$(normalize "$HEADER")")"
 	match "$HEADER" 'clk_info[[:space:]]*\([[:space:]]*void[[:space:]]*\)' \
 		"clock.h: объявлена функция clk_info" \
 		"clock.h: нет объявления clk_info"
@@ -111,7 +112,7 @@ fi
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 	match "$MAIN" '#include[[:space:]]*"clock\.h"' \
 		"main.c: подключён заголовок модуля часов" \
 		"main.c: нет #include \"clock.h\""

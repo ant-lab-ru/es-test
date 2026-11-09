@@ -26,7 +26,7 @@ fi
 ok "Папка libs в корне репозитория"
 
 if [ -f "$FW_LIBS/CMakeLists.txt" ]; then
-	CODE="$(normalize "$FW_LIBS/CMakeLists.txt")"
+	CODE="$(cmake_only "$(normalize "$FW_LIBS/CMakeLists.txt")")"
 	MISSING=""
 	for name in $LIBRARIES; do
 		grep -Eq "add_subdirectory[[:space:]]*\([[:space:]]*$name[[:space:]]*\)" "$CODE" || MISSING="$MISSING $name"
@@ -66,7 +66,7 @@ for name in $LIBRARIES; do
 done
 
 if [ -f "$FW_LIBS/logging/CMakeLists.txt" ]; then
-	if grep -Eq 'pico_|hardware_' "$(normalize "$FW_LIBS/logging/CMakeLists.txt")"; then
+	if grep -Eq 'pico_|hardware_' "$(cmake_only "$(normalize "$FW_LIBS/logging/CMakeLists.txt")")"; then
 		fail "libs/logging: библиотека подключает SDK"
 		note "Журналу SDK не нужен. Без него сборка сама проверяет эту границу."
 	else
@@ -128,7 +128,7 @@ fi
 
 fw_need PROFILING_H profiling.h
 if [ -n "$PROFILING_H" ]; then
-	match "$(normalize "$PROFILING_H")" '#ifndef[[:space:]]+PROFILING_ENABLED' \
+	match "$(fw_code "$PROFILING_H")" '#ifndef[[:space:]]+PROFILING_ENABLED' \
 		"profiling.h: значение PROFILING_ENABLED по умолчанию задано через #ifndef" \
 		"profiling.h: нет #ifndef PROFILING_ENABLED"
 fi

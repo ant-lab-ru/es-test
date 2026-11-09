@@ -6,6 +6,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/cmake.sh"
 . "$LIB/device.sh"
@@ -31,13 +32,13 @@ for f in memory/memory.h memory/memory.c check-2-1-3.py device-2-1-3.log; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
 BODY="$SRC/memory/memory.c"
 if [ -f "$BODY" ]; then
-	BODY="$(normalize "$BODY")"
+	BODY="$(code_only "$(normalize "$BODY")")"
 
 	MISSING=""
 	for sym in __flash_binary_end __boot2_end__ __etext __data_start__ __data_end__ \
@@ -48,7 +49,7 @@ if [ -f "$BODY" ]; then
 		ok "memory.c: символы линкера объявлены через extern char"
 	else
 		fail "memory.c: не объявлены символами линкера:$MISSING"
-		if grep -Eq 'extern[[:space:]]+char[[:space:]]+__' "$SRC/memory/memory.h" 2>/dev/null; then
+		if [ -f "$SRC/memory/memory.h" ] && grep -Eq 'extern[[:space:]]+char[[:space:]]+__' "$(code_only "$(normalize "$SRC/memory/memory.h")")"; then
 			note "Объявления нашлись в memory.h. Перенесите их в memory.c: символы линкера — внутреннее дело модуля памяти, а заголовок описывает только то, что модуль даёт наружу."
 		else
 			note "Символ объявляют как extern char и берут у него адрес — значения у него нет."
@@ -78,7 +79,7 @@ fi
 
 HEADER="$SRC/memory/memory.h"
 if [ -f "$HEADER" ]; then
-	HEADER="$(normalize "$HEADER")"
+	HEADER="$(code_only "$(normalize "$HEADER")")"
 	match "$HEADER" 'void[[:space:]]+mem_info[[:space:]]*\(' \
 		"memory.h: mem_info объявлена в заголовочном файле" \
 		"memory.h: нет объявления mem_info"
@@ -86,7 +87,7 @@ fi
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 	if grep -Eq '#include[[:space:]]*"memory\.h"' "$MAIN"; then
 		ok "main.c: подключён заголовочный файл модуля памяти"
 	else

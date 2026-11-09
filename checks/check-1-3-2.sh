@@ -7,6 +7,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/device.sh"
 
 TITLE="Задание 1.3.2 — Скрипт проверки на устройстве"
@@ -24,31 +25,31 @@ ok "Папка проекта $PROJECT найдена"
 SCRIPT="$SRC/check-1-3-2.py"
 if [ -f "$SCRIPT" ]; then
 	ok "Файл check-1-3-2.py на месте"
-	SCRIPT="$(normalize "$SCRIPT")"
+	SCRIPT="$(python_only "$(normalize "$SCRIPT")")"
 
-	match "$SCRIPT" 'import[[:space:]]+serial|from[[:space:]]+serial' \
+	script_match "$SCRIPT" 'import[[:space:]]+serial|from[[:space:]]+serial' \
 		"check-1-3-2.py: подключена библиотека работы с портом" \
 		"check-1-3-2.py: нет обращения к библиотеке serial"
-	match "$SCRIPT" 'list_ports' \
+	script_match "$SCRIPT" 'list_ports' \
 		"check-1-3-2.py: порты компьютера перебираются списком" \
 		"check-1-3-2.py: нет перебора портов через list_ports"
-	match "$SCRIPT" '0[xX]2[eE]8[aA]' \
+	script_match "$SCRIPT" '0[xX]2[eE]8[aA]' \
 		"check-1-3-2.py: плата ищется по коду производителя Raspberry Pi" \
 		"check-1-3-2.py: в скрипте нет кода производителя 0x2E8A"
-	match "$SCRIPT" '\.vid|\.pid' \
+	script_match "$SCRIPT" '\.vid|\.pid' \
 		"check-1-3-2.py: сверяются коды USB-устройства, а не имя порта" \
 		"check-1-3-2.py: плата не опознаётся по коду устройства"
-	match "$SCRIPT" 'timeout[[:space:]]*=' \
+	script_match "$SCRIPT" 'timeout[[:space:]]*=' \
 		"check-1-3-2.py: у порта задано предельное время ожидания" \
 		"check-1-3-2.py: нет timeout — скрипт зависнет на молчащей плате"
-	match "$SCRIPT" 'serial_number' \
+	script_match "$SCRIPT" 'serial_number' \
 		"check-1-3-2.py: в лог пишется серийный номер платы" \
 		"check-1-3-2.py: серийный номер платы не читается"
-	match "$SCRIPT" 'encoding[[:space:]]*=[[:space:]]*"utf-8"|encoding[[:space:]]*=[[:space:]]*.utf-8.' \
+	script_match "$SCRIPT" 'encoding[[:space:]]*=[[:space:]]*"utf-8"|encoding[[:space:]]*=[[:space:]]*.utf-8.' \
 		"check-1-3-2.py: лог пишется в кодировке UTF-8" \
 		"check-1-3-2.py: у файла лога не задана кодировка utf-8"
 else
-	fail "В проекте нет файла check-1-3-2.py"
+	file_missing check-1-3-2.py
 	note "Скрипт задания лежит рядом с main.c проекта $PROJECT."
 fi
 

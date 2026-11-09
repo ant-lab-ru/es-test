@@ -28,7 +28,7 @@ for f in main.c profiling/profiling.c profiling/profiling.h check-2-2-4.py devic
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 

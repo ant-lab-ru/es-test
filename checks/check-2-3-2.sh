@@ -92,7 +92,7 @@ match "$API" 'usage led_period' \
 
 CMAKE="$FW_SRC/CMakeLists.txt"
 if [ -f "$CMAKE" ]; then
-	match "$(normalize "$CMAKE")" '[-]Wall' \
+	match "$(cmake_only "$(normalize "$CMAKE")")" '[-]Wall' \
 		"CMakeLists.txt: проект собирается с ключом -Wall" \
 		"CMakeLists.txt: нет ключа -Wall"
 fi

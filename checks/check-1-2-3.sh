@@ -7,6 +7,7 @@ set -u
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/report.sh"
+. "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/cmake.sh"
 
@@ -27,7 +28,7 @@ for f in $EXPECTED; do
 	if [ -f "$SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
-		fail "В проекте нет файла $f"
+		file_missing "$f"
 	fi
 done
 
@@ -44,7 +45,7 @@ done
 
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
-	MAIN="$(normalize "$MAIN")"
+	MAIN="$(code_only "$(normalize "$MAIN")")"
 
 	match "$MAIN" 'bool[[:space:]]+get_button_debounce[[:space:]]*\([[:space:]]*uint[[:space:]]+[A-Za-z_]' \
 		"main.c: объявлена функция bool get_button_debounce(uint pin)" \

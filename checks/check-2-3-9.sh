@@ -30,7 +30,7 @@ if [ -f "$CMAKE" ]; then
 		"CMakeLists.txt: в project() не 239_two_buttons"
 fi
 if [ -f "$FW_SRC/firmware.h" ]; then
-	match "$(normalize "$FW_SRC/firmware.h")" '"239-two-buttons"' \
+	match "$(fw_code "$FW_SRC/firmware.h")" '"239-two-buttons"' \
 		"firmware.h: имя проекта 239-two-buttons" \
 		"firmware.h: имя проекта не 239-two-buttons"
 else
@@ -43,7 +43,7 @@ for f in logic/api/api.c logic/api/api.h logic/api/api-commands.h logic/pi-task/
 	if [ ! -f "$FW_SRC/$f" ] || [ ! -f "$TEMPLATE/$f" ]; then
 		fail "Нет файла $f в проекте или в шаблоне"
 		note "Проект 239-two-buttons — копия папки 231-firmware-template."
-	elif diff -q "$(normalize "$FW_SRC/$f")" "$(normalize "$TEMPLATE/$f")" > /dev/null; then
+	elif same_code "$FW_SRC/$f" "$TEMPLATE/$f"; then
 		ok "$f не изменился"
 	else
 		fail "$f отличается от шаблона"
@@ -54,7 +54,7 @@ done
 # что должно было измениться
 for f in platform/platform.c main.c; do
 	if [ -f "$FW_SRC/$f" ] && [ -f "$TEMPLATE/$f" ] &&
-		! diff -q "$(normalize "$FW_SRC/$f")" "$(normalize "$TEMPLATE/$f")" > /dev/null; then
+		! same_code "$FW_SRC/$f" "$TEMPLATE/$f"; then
 		ok "$f изменился: здесь новая кнопка"
 	else
 		fail "$f не отличается от шаблона"
