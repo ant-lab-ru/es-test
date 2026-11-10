@@ -13,6 +13,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/device.sh"
 . "$LIB/exchange.sh"
 . "$LIB/firmware.sh"
+. "$LIB/base.sh"
 
 fw_start "Задание 3.1.2 — Измерение температуры" 311-adc "${1:-.}" "${2:-}"
 
@@ -69,6 +70,7 @@ if device_log "$FW_SRC/device-3-1-2.log" "3.1.2"; then
 	reply() {
 		exchange_replies "$TABLE" "$1" "$2" | cut -f2 | tail -n +2
 	}
+	base_run "$DEVICE_LOG"
 
 	CALLS="$(exchange_calls "$DEVICE_LOG" get_temp)"
 	VALUES=""

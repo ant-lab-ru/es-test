@@ -17,6 +17,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/exchange.sh"
 . "$LIB/firmware.sh"
 . "$LIB/handlers.sh"
+. "$LIB/base.sh"
 
 
 fw_start "Задание 3.2.6 — Сторожевой таймер" 321-audio-recorder "${1:-.}" "${2:-}"
@@ -78,6 +79,7 @@ if device_log "$FW_SRC/device-3-2-6.log" "3.2.6"; then
 	reply() {
 		exchange_replies "$TABLE" "$1" "$2" | cut -f2 | tail -n +2
 	}
+	base_run "$DEVICE_LOG"
 	HELP="$(reply help 1)"
 	for c in wdt_enable hang reset_reason; do
 		if ! echo "$HELP" | grep -Eq "^$c[[:space:]]+[^[:space:]]"; then

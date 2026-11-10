@@ -15,6 +15,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/device.sh"
 . "$LIB/exchange.sh"
 . "$LIB/firmware.sh"
+. "$LIB/base.sh"
 
 fw_start "Задание 3.1.1 — Измерение напряжения" 311-adc "${1:-.}" "${2:-}"
 
@@ -124,6 +125,7 @@ if device_log "$FW_SRC/device-3-1-1.log" "3.1.1"; then
 	reply() {
 		exchange_replies "$TABLE" "$1" "$2" | cut -f2 | tail -n +2
 	}
+	base_run "$DEVICE_LOG"
 
 	if reply help 1 | grep -Eq '^get_voltage[[:space:]]+[^[:space:]]'; then
 		ok "help перечисляет get_voltage со справкой"

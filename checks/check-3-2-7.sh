@@ -17,6 +17,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/exchange.sh"
 . "$LIB/firmware.sh"
 . "$LIB/handlers.sh"
+. "$LIB/base.sh"
 
 
 fw_start "Задание 3.2.7 — Запись звука" 321-audio-recorder "${1:-.}" "${2:-}"
@@ -62,6 +63,7 @@ if device_log "$FW_SRC/device-3-2-7.log" "3.2.7"; then
 	reply() {
 		exchange_replies "$TABLE" "$1" "$2" | cut -f2 | tail -n +2
 	}
+	base_run "$DEVICE_LOG"
 	BIAS="$(reply mic_bias 1 | grep -E '^mic: bias [0-9]+\.[0-9]{3} V$' | sed -E 's/mic: bias ([0-9.]+) V/\1/')"
 	if [ -z "$BIAS" ]; then
 		fail "Ответ на mic_bias не mic: bias <напряжение> V"

@@ -16,6 +16,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/exchange.sh"
 . "$LIB/firmware.sh"
 . "$LIB/handlers.sh"
+. "$LIB/base.sh"
 
 fw_start "Задание 3.2.2 — Захват по таймеру" 321-audio-recorder "${1:-.}" "${2:-}"
 
@@ -66,6 +67,8 @@ if device_log "$FW_SRC/device-3-2-2.log" "3.2.2"; then
 	reply() {
 		exchange_replies "$TABLE" "$1" "$2" | cut -f2 | tail -n +2
 	}
+	base_run "$DEVICE_LOG"
+	set +e
 	# dump_check <номер вызова cap_dump> <N> <период, мкс> <наибольший допустимый разброс, мкс>
 	dump_check() {
 		local lines head count bad

@@ -16,6 +16,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/exchange.sh"
 . "$LIB/firmware.sh"
 . "$LIB/handlers.sh"
+. "$LIB/base.sh"
 
 
 fw_start "Задание 3.2.3 — Захват блока через DMA" 321-audio-recorder "${1:-.}" "${2:-}"
@@ -89,6 +90,7 @@ if device_log "$FW_SRC/device-3-2-3.log" "3.2.3"; then
 	reply() {
 		exchange_replies "$TABLE" "$1" "$2" | cut -f2 | tail -n +2
 	}
+	base_run "$DEVICE_LOG"
 	# block_check <номер вызова> <N>
 	block_check() {
 		local line expected
