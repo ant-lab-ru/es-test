@@ -16,6 +16,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/device.sh"
 . "$LIB/exchange.sh"
 . "$LIB/firmware.sh"
+. "$LIB/base.sh"
 
 fw_start "Задание 3.1.3 — Телеметрия измерений" 311-adc "${1:-.}" "${2:-}"
 
@@ -91,6 +92,7 @@ if device_log "$FW_SRC/device-3-1-3.log" "3.1.3"; then
 	reply() {
 		exchange_replies "$TABLE" "$1" "$2" | cut -f2 | tail -n +2
 	}
+	base_run "$DEVICE_LOG"
 	# answers <команда> <вызов> — ответы на вызов без строк потока
 	answers() {
 		reply "$1" "$2" | grep -v '^tm: '

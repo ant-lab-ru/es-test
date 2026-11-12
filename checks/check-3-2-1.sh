@@ -17,6 +17,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/exchange.sh"
 . "$LIB/firmware.sh"
 . "$LIB/handlers.sh"
+. "$LIB/base.sh"
 
 fw_start "Задание 3.2.1 — Индикатор записи" 321-audio-recorder "${1:-.}" "${2:-}"
 
@@ -80,6 +81,7 @@ if device_log "$FW_SRC/device-3-2-1.log" "3.2.1"; then
 	reply() {
 		exchange_replies "$TABLE" "$1" "$2" | cut -f2 | tail -n +2
 	}
+	base_run "$DEVICE_LOG"
 
 	if grep -Eq '^[[:space:]]*[0-9.]+ <-- project: 321-audio-recorder$' "$DEVICE_LOG"; then
 		ok "Паспорт прибора называет проект 321-audio-recorder"

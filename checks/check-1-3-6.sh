@@ -9,6 +9,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/code.sh"
 . "$LIB/build.sh"
 . "$LIB/cmake.sh"
+. "$LIB/code.sh"
 . "$LIB/device.sh"
 
 TITLE="Задание 1.3.6 — Макросы логирования"
@@ -74,6 +75,8 @@ fi
 MAIN="$SRC/main.c"
 if [ -f "$MAIN" ]; then
 	MAIN="$(code_only "$(normalize "$MAIN")")"
+	# printf в комментарии — не вызов: проверка смотрит текст без комментариев.
+	CODE="$(code_only "$MAIN")"
 	match "$MAIN" '#include[[:space:]]*"log\.h"' \
 		"main.c: подключён заголовочный файл модуля журнала" \
 		"main.c: нет #include \"log.h\""
@@ -87,7 +90,7 @@ if [ -f "$MAIN" ]; then
 		"main.c: сообщения выводятся макросами журнала" \
 		"main.c: нет ни одного вызова LOG_ERR, LOG_INF или LOG_DBG"
 
-	if grep -Eq 'printf[[:space:]]*\(' "$MAIN"; then
+	if grep -Eq 'printf[[:space:]]*\(' "$CODE"; then
 		fail "main.c: остались прямые вызовы printf"
 		note "Весь вывод проекта идёт через макросы журнала — иначе часть сообщений не отключится порогом."
 	else
