@@ -4,7 +4,7 @@
 # узел с конденсатором 4,7 мкФ, АЦП на GP26 следит за узлом. Задача logic/edge-task
 # без ожиданий измеряет фронт вверх до 2 В и фронт вниз до 1,3 В. Команда edge pp —
 # двухтактный режим, edge od — открытый сток с внутренней подтяжкой.
-# Читает код и README, собирает проект и разбирает лог: фронты обоих режимов, ошибки.
+# Читает код, собирает проект и разбирает лог: ёмкость из шапки, фронты обоих режимов, ошибки.
 # Использование: check-3-3-1.sh <путь к репозиторию> [папка проекта]
 set -u
 
@@ -16,13 +16,14 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 . "$LIB/device.sh"
 . "$LIB/exchange.sh"
 . "$LIB/firmware.sh"
+. "$LIB/numbers.sh"
 
 fw_start "Задание 3.3.1 — Драйверы линии" 331-uart "${1:-.}" "${2:-}"
 
 fw_need PLATFORM_C platform.c
 fw_need TASK_H edge-task.h
 fw_need TASK_C edge-task.c
-for f in main.c README.md check-3-3-1.py device-3-3-1.log; do
+for f in main.c check-3-3-1.py device-3-3-1.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
@@ -84,20 +85,22 @@ else
 	ok "logic: логика по-прежнему без SDK"
 fi
 
-RAW_README="$FW_SRC/README.md"
-if [ -f "$RAW_README" ]; then
-	TEXT="$(normalize "$RAW_README")"
-	if grep -Eq '4[.,]7' "$TEXT" && grep -Eq '50' "$TEXT" && grep -Eq '80' "$TEXT"; then
-		ok "README.md: есть расчёт τ для 1 кОм и 4,7 мкФ и для подтяжки 50–80 кОм"
-	else
-		fail "README.md: нет расчёта τ = R·C для 1 кОм и 4,7 мкФ и для подтяжки 50–80 кОм"
-		note "Запишите расчёт для обоих режимов и измеренные времена рядом с ним (п3.3.1, шаг 7)."
-	fi
-fi
+# резистор цепи — 1 кОм, ёмкость скрипт задания пишет в шапку лога
+R_KOHM=1
+C_UF=""
 
 build_project "$FW_SRC"
 
 if device_log "$FW_SRC/device-3-3-1.log" "3.3.1"; then
+	C_UF="$(first_number "$(grep -E '^конденсатор, мкФ: ' "$DEVICE_LOG" | head -1)")"
+	if within "$C_UF" 2.2 10; then
+		ok "Конденсатор $C_UF мкФ, τ = $(awk -v r="$R_KOHM" -v c="$C_UF" 'BEGIN { printf "%.1f", r * c }') мс"
+	else
+		fail "В шапке лога нет ёмкости конденсатора 2,2–10 мкФ${C_UF:+ — записано $C_UF}"
+		note "Ёмкость передаётся скрипту аргументом: python check-3-3-1.py 4.7 (п3.3.1, шаг 7)."
+		C_UF=""
+	fi
+
 	TABLE="$(exchange_table "$DEVICE_LOG")"
 	reply() {
 		exchange_replies "$TABLE" "$1" "$2" | cut -f2 | tail -n +2
@@ -127,19 +130,29 @@ if device_log "$FW_SRC/device-3-3-1.log" "3.3.1"; then
 		fi
 		rise="$(echo "$answer" | sed -E 's/.*rise[[:space:]]+([0-9.]+).*/\1/')"
 		fall="$(echo "$answer" | sed -E 's/.*fall[[:space:]]+([0-9.]+).*/\1/')"
+		if [ -z "$C_UF" ]; then
+			fail "$3: фронт вверх $rise мс, фронт вниз $fall мс — сравнить не с чем, ёмкости в логе нет"
+			return
+		fi
+		# фронт через 1 кОм: 0,93 τ ± 30 %; фронт вверх открытого стока: подтяжка 30–100 кОм
+		local bounds
+		bounds="$(awk -v r="$R_KOHM" -v c="$C_UF" 'BEGIN {
+			t = 0.93 * r * c
+			printf "%.1f %.1f %.0f %.0f", 0.7 * t, 1.3 * t, 0.93 * 30 * c, 0.93 * 100 * c }')"
+		set -- "$1" "$2" "$3" $bounds
 		if [ "$2" = pp ]; then
-			if awk -v r="$rise" -v f="$fall" 'BEGIN { exit !(r >= 1 && r <= 20 && f >= 1 && f <= 20 && r / f >= 0.5 && r / f <= 2) }'; then
-				ok "$3: фронт вверх $rise мс, фронт вниз $fall мс — единицы миллисекунд и близки"
+			if awk -v r="$rise" -v f="$fall" -v lo="$4" -v hi="$5" 'BEGIN { exit !(r >= lo && r <= hi && f >= lo && f <= hi) }'; then
+				ok "$3: фронт вверх $rise мс, фронт вниз $fall мс — в пределах $4–$5 мс"
 			else
-				fail "$3: фронт вверх $rise мс, фронт вниз $fall мс, а в двухтактном режиме оба около 5 мс"
-				note "Через 1 кОм и 4,7 мкФ τ = 4,7 мс. Проверьте номиналы и то, что вывод в двухтактном режиме не подтянут."
+				fail "$3: фронт вверх $rise мс, фронт вниз $fall мс, а по ёмкости из лога оба в пределах $4–$5 мс"
+				note "Проверьте номиналы на плате и то, что вывод в двухтактном режиме не подтянут."
 			fi
 		else
-			if awk -v r="$rise" -v f="$fall" 'BEGIN { exit !(r >= 100 && r <= 2000 && f >= 1 && f <= 20) }'; then
+			if awk -v r="$rise" -v f="$fall" -v lo="$4" -v hi="$5" -v plo="$6" -v phi="$7" 'BEGIN { exit !(r >= plo && r <= phi && f >= lo && f <= hi) }'; then
 				ok "$3: фронт вверх $rise мс через подтяжку, фронт вниз $fall мс через ключ"
 			else
-				fail "$3: фронт вверх $rise мс, фронт вниз $fall мс, а у открытого стока вверх дольше 100 мс, вниз единицы мс"
-				note "Отпущенную линию поднимает только внутренняя подтяжка 50–80 кОм. Если фронт вверх короткий, в регистр выхода записана единица."
+				fail "$3: фронт вверх $rise мс, фронт вниз $fall мс, а по номиналам вверх $6–$7 мс, вниз $4–$5 мс"
+				note "Отпущенную линию поднимает только внутренняя подтяжка. Если фронт вверх короткий, в регистр выхода записана единица."
 			fi
 		fi
 	}

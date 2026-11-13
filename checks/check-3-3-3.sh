@@ -4,7 +4,7 @@
 # гонит строку из UART0 в UART1 и обратно, baud_shift <процент> смещает скорость UART1
 # и печатает настоящую скорость, text передаёт 32 символа из UART1 в UART0, parity <rx> <tx>
 # задаёт чётность. Скорость и формат меняет только platform.
-# Читает код и README, собирает проект и разбирает лог: link без ошибок, text при смещении
+# Читает код, собирает проект и разбирает лог: link без ошибок, text при смещении
 # 0, +2 и −2 % без ошибок, при −10 % другой текст и FE, при разной чётности PE.
 # Использование: check-3-3-3.sh <путь к репозиторию> [папка проекта]
 set -u
@@ -21,7 +21,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 fw_start "Задание 3.3.3 — Два модуля и допуск скорости" 331-uart "${1:-.}" "${2:-}"
 
 fw_need PLATFORM_C platform.c
-for f in README.md check-3-3-3.py device-3-3-3.log; do
+for f in check-3-3-3.py device-3-3-3.log; do
 	if [ -f "$FW_SRC/$f" ]; then
 		ok "Файл $f на месте"
 	else
@@ -58,16 +58,6 @@ if grep -Eq '#include[[:space:]]*[<"](pico|hardware)/|(^|[^a-z_])uart_(init|set_
 	note "Скорость и формат UART — железо, им место в platform."
 else
 	ok "logic: логика по-прежнему без SDK"
-fi
-
-RAW_README="$FW_SRC/README.md"
-if [ -f "$RAW_README" ]; then
-	if grep -Eq '[0-9]+([.,][0-9]+)?[[:space:]]*%' "$(normalize "$RAW_README")"; then
-		ok "README.md: записана граница допуска в процентах"
-	else
-		fail "README.md: нет границы допуска скорости в процентах"
-		note "Запишите смещение, при котором text начинает давать ошибки, и сравните его с расчётом из т3.3.3."
-	fi
 fi
 
 build_project "$FW_SRC"
@@ -168,7 +158,6 @@ if device_log "$FW_SRC/device-3-3-3.log" "3.3.3"; then
 	fi
 
 	text_clean 0 none/none "Скорость и чётность возвращены" "После parity none none обмен снова должен идти без ошибок." tail
-
 	if reply parity "$(exchange_calls "$DEVICE_LOG" parity)" | grep -Eq '^error: usage parity '; then
 		ok "parity с одним аргументом отклонён: error: usage parity …"
 	else
