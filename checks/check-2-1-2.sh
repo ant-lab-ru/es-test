@@ -39,7 +39,7 @@ MAIN="$SRC/main.c"
 # через #include или прямо в файле.
 SOURCES="$(mktemp)"
 find "$SRC" -type f \( -name '*.c' -o -name '*.h' \) -not -path '*/build/*' -print0 2>/dev/null |
-	sort -z | xargs -0 -r -n 1 bash -c '. "$1"; cat "$(normalize "$2")"' sh "$LIB/report.sh" > "$SOURCES"
+	sort -z | xargs -0 -r -n 1 bash -c '. "$1"; . "$2"; cat "$(code_only "$(normalize "$3")")"' sh "$LIB/report.sh" "$LIB/code.sh" > "$SOURCES"
 FLAT="$(mktemp)"
 tr '\n' ' ' < "$SOURCES" > "$FLAT"
 
@@ -146,8 +146,13 @@ if [ -f "$CMAKE" ]; then
 	FLAT_CMAKE="$(cmake_flatten "$CMAKE")"
 	# Заголовок ищется из папки проекта; если он лежит в её подпапке,
 	# эта подпапка должна быть в путях поиска заголовков.
-	HEADER_PATH="$(find "$SRC" -maxdepth 2 -type f -name '*.h' -not -path '*/build/*' 2>/dev/null |
-		xargs grep -lE 'struct[[:space:]]+command_t' 2>/dev/null | sort | head -1)"
+	HEADER_PATH="$(find "$SRC" -maxdepth 2 -type f -name '*.h' -not -path '*/build/*' 2>/dev/null | sort |
+        while IFS= read -r header; do
+            if grep -Eq 'struct[[:space:]]+command_t' "$(code_only "$(normalize "$header")")"; then
+                echo "$header"
+                break
+            fi
+        done)"
 	HEADER_DIR="$(dirname "${HEADER_PATH:-$SRC/main.c}")"
 	if [ "$(cd "$HEADER_DIR" && pwd)" = "$(cd "$SRC" && pwd)" ]; then
 		ok "Объявления таблицы лежат рядом с main.c — отдельного пути в сборке не нужно"

@@ -12,7 +12,8 @@ exchange_table() {
 		/-->/ { step++; command = $3; sent = $1; next }
 		/<--/ {
 			if (step == 0) next
-			text = substr($0, index($0, "<-- ") + 4)
+			text = substr($0, index($0, "<--") + 3)
+			sub(/^[ \t]+/, "", text)
 			printf "%d\t%s\t%s\t%s\t%s\n", step, command, sent, $1, text
 		}
 	' "$1"

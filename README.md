@@ -162,3 +162,11 @@ echo $PICO_SDK_PATH
 - [student/.github/workflows/](student/.github/workflows/) — файлы, которые вы копируете к себе в репозиторий es-student.
 - [run-local.sh](run-local.sh) — локальный прогон.
 - [selftest/](selftest/) — самопроверка для тех, кто пишет проверки: `selftest/comments.sh ../es-student` следит, что комментарии не меняют итог.
+
+## Занятие 4.1
+
+- `4.1.1` — Передача между контроллерами SPI. Проект `411-peripheral-link`, сборка, очищенный код и лог USB-обмена.
+- `4.1.2` — Обмен между контроллерами I²C. Проект `411-peripheral-link`, сборка, очищенный код и лог USB-обмена.
+- `4.1.3` — Чтение идентификатора BME280. Проект `411-peripheral-link`, сборка, очищенный код и лог USB-обмена.
+
+Самопроверки занятия 4.1 из корня ant-es выполняются командами `python3 es-test/selftest/lesson-4-1.py` и `es-test/selftest/comments.sh es-student`. Первый сценарий использует временную копию эталона и проверяет 30 ошибок. Тест `selftest/register-bank.c` компилируется вместе с `platform/register-bank.c` обычным компилятором C, без SDK и платы.
