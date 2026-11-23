@@ -1,9 +1,9 @@
-name: 4.1.2 Обмен между контроллерами I²C
+name: 4.1.2 Ведущий I²C
 
 on:
   push:
     paths:
-      - '411-peripheral-link/**'
+      - '411-spi-i2c/**'
       - 'libs/**'
       - '.github/workflows/check-4-1-2.yml'
   workflow_dispatch:

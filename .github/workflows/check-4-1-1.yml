@@ -1,4 +1,4 @@
-name: Проверка 4.1.1 Передача между контроллерами SPI
+name: Проверка 4.1.1 Ведущий SPI
 
 on:
   workflow_call:
@@ -7,7 +7,7 @@ on:
         description: Папка проекта в репозитории обучающегося
         required: false
         type: string
-        default: "411-peripheral-link"
+        default: "411-spi-i2c"
       lms_url:
         description: Приёмник результатов на платформе; пустой — отправка выключена
         required: false
@@ -20,7 +20,7 @@ on:
 
 jobs:
   check:
-    name: Передача между контроллерами SPI
+    name: Ведущий SPI
     runs-on: ubuntu-latest
     steps:
       - name: Репозиторий обучающегося

@@ -1,59 +1,92 @@
-# Самопроверка проверок 4.1 на копии эталона. Живой платы не требует.
-# Запуск из ant-es: python3 es-test/selftest/lesson-4-1.py
-# Нужны логи трёх заданий в es-student/411-peripheral-link и компилятор cc.
+"""Самопроверка пяти проверок 4.1. Синтетический обмен живёт только в /tmp."""
 from pathlib import Path
-import shutil,subprocess,os,re,tempfile
-root=Path(__file__).resolve().parents[2]; work=Path(tempfile.mkdtemp(prefix='lesson-4-1-negative-')); repo=work/'student';p=repo/'411-peripheral-link'
-shutil.copytree(root/'es-student/411-peripheral-link',p,ignore=shutil.ignore_patterns('build'))
-(repo/'libs').mkdir()
-env=dict(os.environ);env.pop('PICO_SDK_PATH',None);env.pop('CHECKS_JSON',None)
-def run(task):
- done=subprocess.run([str(root/f'es-test/checks/check-4-1-{task}.sh'),str(repo)],env=env,capture_output=True,text=True)
- if done.returncode not in (0,1):raise AssertionError(done.stderr)
- return done.returncode==0,done.stdout
-cases=0
-for k in (1,2,3):
- ok,out=run(k);assert ok,out
- # Все пробельные разделители в транспортных строках могут стать табуляцией.
- f=p/f'device-4-1-{k}.log';old=f.read_text();f.write_text('\n'.join(re.sub(' +','\t',s) if '-->' in s or '<--' in s else s for s in old.splitlines())+'\n')
- ok,out=run(k)
- assert ok, ('WHITESPACE FAILED',k,out)
- f.write_text(old)
-def mutate(k,file,change):
- global cases
- f=p/file;old=f.read_text();new=change(old);assert new!=old,file;f.write_text(new)
- try:
-  ok,out=run(k);assert not ok,(file,out)
- finally:f.write_text(old)
- cases+=1
-for k,token in [(1,'spi_set_slave'),(1,'spi_is_readable'),(1,'time_reached'),(2,'I2C_SLAVE_RECEIVE'),(2,'I2C_SLAVE_REQUEST'),(2,'I2C_SLAVE_FINISH'),(2,'i2c_slave_init'),(2,'i2c_read_byte_raw'),(2,'i2c_write_byte_raw'),(3,'i2c_read_timeout_us'),(3,'i2c_write_timeout_us')]:
- file='platform/spi-link.c' if k==1 else 'platform/i2c-link.c'
- mutate(k,file,lambda t,token=token:t.replace(token,'MISSING')+'\n// '+token+'(i2c1, true);\n')
-for k in (1,2,3):
- file=f'device-4-1-{k}.log'
- mutate(k,file,lambda t:t.replace('устройство: 2e8a:000a','устройство: dead:beef'))
- mutate(k,file,lambda t:t.replace('--> uptime','--> missing_uptime'))
-mutate(1,'device-4-1-1.log',lambda t:t.replace('spi: hello bytes 5 match yes','spi: hello bytes 4 match yes'))
-mutate(1,'device-4-1-1.log',lambda t:t.replace('spi: Pico bytes 4 match yes','spi: Pico bytes 4 match no'))
-mutate(2,'device-4-1-2.log',lambda t:t.replace('value 0x37','value 0x00'))
-mutate(2,'device-4-1-2.log',lambda t:t.replace('value 0xc8','value 0x37'))
-mutate(2,'device-4-1-2.log',lambda t:t.replace('value 0xa5','value 0x00'))
-mutate(2,'device-4-1-2.log',lambda t:t.replace('value 0xff','value 0x00'))
-mutate(3,'device-4-1-3.log',lambda t:t.replace('value 0x60','value 0x58'))
-# Удаление ответа не должно сдвинуть соответствие следующих команд.
-mutate(3,'device-4-1-3.log',lambda t:re.sub(r'^.*<-- i2c:.*\n','',t,count=1,flags=re.M))
-# Запоздалый ответ и старое значение при ошибке должны отклоняться.
-mutate(3,'device-4-1-3.log',lambda t:re.sub(r'^\s*[0-9.]+(?= <-- i2c:)', '9999.000',t,count=1,flags=re.M))
-mutate(3,'device-4-1-3.log',lambda t:re.sub(r'^(.*)<-- error: i2c transfer$',r'\1<-- error: i2c transfer\n\1<-- i2c: addr 0x76 reg 0xd0 value 0x60',t,count=1,flags=re.M))
-# Постоянные регистры и сохранение выбранного номера проверяются исполняемым тестом.
-f=p/'platform/register-bank.c';old=f.read_text()
-for modified in [old.replace('return 0xa5','return 0'),old.replace('bank->config = byte','bank->config = 0'),re.sub(r'(void register_bank_finish\([^)]*\)\s*\{)', r'\1\n    bank->selected = REG_ID;', old)]:
- f.write_text(modified)
- exe=work/'registers'
- subprocess.run(['cc','-I',str(p),str(root/'es-test/selftest/register-bank.c'),str(f),'-o',str(exe)],check=True,capture_output=True)
- done=subprocess.run([str(exe)],capture_output=True)
- assert done.returncode!=0,'unit test missed mutation'
- cases+=1
-f.write_text(old)
-print('Отрицательных вариантов обнаружено',cases)
-print('Временная копия',work)
+import os
+import shutil
+import subprocess
+import tempfile
+
+ROOT = Path(__file__).resolve().parents[2]
+PROJECT = "411-spi-i2c"
+ID = ("i2c_read_reg 0x76 0xD0", "i2c: addr 0x76 reg 0xD0 value 0x60")
+SPI_ID = ("spi_read 0x00 0xD0", "spi: cs 0x00 command 0xD0 value 0x60")
+I2C_ON = ("i2c_write_reg 0x42 0x00 0x65", "i2c: addr 0x42 reg 0x00 sent 0x65")
+I2C_OFF = ("i2c_write_reg 0x42 0x01 0x00", "i2c: addr 0x42 reg 0x01 sent 0x00")
+I2C_STATE = "i2c_read_reg 0x42 0x01"
+SPI_STATE = "spi_read 0x01 0x81 0x64"
+READ_I2C_ON = (I2C_STATE, "i2c: addr 0x42 reg 0x01 value 0x01")
+READ_I2C_OFF = (I2C_STATE, "i2c: addr 0x42 reg 0x01 value 0x00")
+READ_SPI_ON = (SPI_STATE, "spi: cs 0x01 command 0x81 value 0x01")
+READ_SPI_OFF = (SPI_STATE, "spi: cs 0x01 command 0x81 value 0x00")
+SCENARIOS = {
+    1: [SPI_ID],
+    2: [ID],
+    4: [ID, I2C_ON, READ_I2C_ON, I2C_OFF, READ_I2C_OFF],
+    5: [ID, ("i2c_read_reg 0x43 0x01", "error: i2c transfer"),
+        ("spi_write 0x01 0x00 0x65", "spi: cs 0x01 command 0x00 sent 0x65"),
+        READ_I2C_ON, I2C_OFF, READ_SPI_OFF, I2C_ON, READ_SPI_ON],
+}
+
+def fixture(stage, steps, separator=" "):
+    header = f"задание: 4.1.{stage}\nустройство: 2e8a:000a\nсерийный номер: 11111111\n"
+    rows = []
+    for i, (command, response) in enumerate(steps):
+        rows.append(separator.join((str(i), "-->", command)))
+        rows.append(separator.join((f"{i}.050", "<--", response)))
+    return header + "\n".join(rows) + "\n"
+
+def main():
+    env = {k: v for k, v in os.environ.items() if k not in ("PICO_SDK_PATH", "CHECKS_JSON")}
+    with tempfile.TemporaryDirectory(prefix="lesson-4-1-") as tmp:
+        repo = Path(tmp)
+        project = repo / PROJECT
+        shutil.copytree(ROOT / "es-student" / PROJECT, project,
+                        ignore=shutil.ignore_patterns("build", "*.log"))
+        count = 0
+
+        def run(stage, expected):
+            nonlocal count
+            command = ROOT / "es-test/checks" / f"check-4-1-{stage}.sh"
+            proc = subprocess.run([str(command), str(repo)], env=env, text=True,
+                                  capture_output=True)
+            assert proc.returncode == expected, proc.stdout + proc.stderr
+            count += 1
+            return proc.stdout
+
+        def log_path(stage):
+            return project / f"device-4-1-{stage}.log"
+
+        assert "⚠️" in run(1, 0)
+        run(3, 0)
+        for stage in (2, 4, 5):
+            run(stage, 1)
+        for stage, steps in SCENARIOS.items():
+            path = log_path(stage)
+            good = fixture(stage, steps, "\t")
+            path.write_text(good)
+            run(stage, 0)
+            path.write_text(good.replace("2e8a:000a", "0000:0000"))
+            run(stage, 1)
+            path.write_text(good.replace("0x60", "0x58", 1))
+            run(stage, 1)
+            path.write_text(fixture(stage, steps[:-1]))
+            run(stage, 1)
+            path.write_text(good)
+        path = log_path(5)
+        order = list(SCENARIOS[5])
+        order[4], order[5] = order[5], order[4]
+        path.write_text(fixture(5, order))
+        run(5, 1)
+        path.write_text(fixture(5, SCENARIOS[5]).replace("7.050", "10.050"))
+        run(5, 1)
+        path.write_text(fixture(5, SCENARIOS[5]))
+        p = project / "platform/platform.c"
+        source = p.read_text()
+        for stage, token in ((1, "spi_read_blocking"), (2, "i2c_read_timeout_us"),
+                             (3, "multicore_launch_core1"), (4, "i2c_read_byte_raw"),
+                             (5, "spi_set_slave")):
+            p.write_text(source.replace(token, "replaced") + f"\n// {token}(spi1, true)\n")
+            run(stage, 1)
+        print(f"Пройдено сценариев 4.1: {count}")
+
+if __name__ == "__main__":
+    main()
