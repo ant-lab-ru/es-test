@@ -9,7 +9,7 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$LIB/firmware.sh"
 . "$LIB/device.sh"
 
-fw_start "Задание $CHECKS_TASK — $LESSON_TITLE" 411-spi-i2c "${1:-.}" "${2:-}"
+fw_start "Задание $CHECKS_TASK — $LESSON_TITLE" 411-i2c-spi "${1:-.}" "${2:-}"
 stage="${CHECKS_TASK##*.}"
 code="$(fw_project_code)"
 flat="$(fw_flat "$code")"
@@ -30,17 +30,37 @@ expect_code() {
 
 expect_code 'add_library[[:space:]]*\([[:space:]]*platform[[:space:]]+STATIC' "$cmake_code" 'platform собирается как отдельная цель' 'Сверьте add_library для platform.'
 expect_code 'add_library[[:space:]]*\([[:space:]]*logic[[:space:]]+STATIC' "$cmake_code" 'logic собирается как отдельная цель' 'Сверьте add_library для logic.'
-expect_code 'stdio_text_protocol_handle[[:space:]]*\(' "$code" 'Команды читаются через библиотеку курса' 'Вызовите stdio_text_protocol_handle в суперцикле ведущего.'
-expect_code 'spi_write_blocking[[:space:]]*\([[:space:]]*spi0' "$code" 'Ведущий передаёт через SPI0' 'Проверьте реализацию передачи в platform.'
-expect_code 'spi_read_blocking[[:space:]]*\([[:space:]]*spi0' "$code" 'Ведущий читает через SPI0' 'После управляющего байта считайте ответ через spi_read_blocking.'
-expect_code '"spi_write"' "$code" 'Есть USB-команда spi_write' 'Добавьте имя и обработчик в таблицу команд.'
-expect_code '"spi_read"' "$code" 'Есть USB-команда spi_read' 'Добавьте имя и обработчик в таблицу команд.'
+expect_code 'logic/api/api[.]c' "$cmake_code" 'Диспетчер API входит в сборку' 'Добавьте logic/api/api.c в цель logic.'
+expect_code 'logic/api/api-callbacks[.]c' "$cmake_code" 'Обработчики команд входят в сборку' 'Добавьте logic/api/api-callbacks.c в цель logic.'
 
+main_code="$(mktemp)"
+api_code="$(mktemp)"
+callbacks_code="$(mktemp)"
+for path in main.c logic/api/api.c logic/api/api-callbacks.c; do
+    case "$path" in
+        main.c) output="$main_code" ;;
+        logic/api/api.c) output="$api_code" ;;
+        *) output="$callbacks_code" ;;
+    esac
+    if [ -f "$FW_SRC/$path" ]; then
+        cat "$(fw_code "$FW_SRC/$path")" > "$output"
+    fi
+done
+expect_code 'stdio_text_protocol_handle[[:space:]]*\(' "$main_code" 'Команды читаются через библиотеку курса' 'Вызовите stdio_text_protocol_handle в суперцикле ядра 0.'
+expect_code 'api_handle[[:space:]]*\(' "$main_code" 'Главный цикл передаёт команды в API' 'После приёма команды вызовите api_handle в main.c.'
+expect_code '\.callback[[:space:]]*\(' "$api_code" 'API вызывает обработчик из таблицы' 'Возьмите реализацию api.c из проекта 231-firmware-template.'
+expect_code 'api_commands[[:space:]]*\[' "$callbacks_code" 'Таблица команд находится в api-callbacks.c' 'Определите api_commands в logic/api/api-callbacks.c.'
+expect_code '"i2c_read_reg"' "$callbacks_code" 'Есть USB-команда i2c_read_reg' 'Добавьте команду чтения одного байта.'
+expect_code '"i2c_write_reg"' "$callbacks_code" 'Есть USB-команда i2c_write_reg' 'Добавьте команду записи одного байта.'
+expect_code 'i2c_write_timeout_us[[:space:]]*\([[:space:]]*i2c0[[:space:]]*,[^)]*,[[:space:]]*true[[:space:]]*,' "$flat" 'Выбор регистра завершается без STOP' 'Передайте true в аргументе nostop первой фазы чтения.'
+expect_code 'i2c_read_timeout_us[[:space:]]*\([[:space:]]*i2c0[[:space:]]*,[^)]*,[[:space:]]*false[[:space:]]*,' "$flat" 'Чтение одного байта завершается STOP' 'Используйте i2c_read_timeout_us с nostop равным false.'
 if [ "$stage" -ge 2 ]; then
-    expect_code '"i2c_read_reg"' "$code" 'Есть USB-команда i2c_read_reg' 'Добавьте команду чтения одного байта.'
-    expect_code '"i2c_write_reg"' "$code" 'Есть USB-команда i2c_write_reg' 'Добавьте команду записи одного байта.'
-    expect_code 'i2c_write_timeout_us[[:space:]]*\([[:space:]]*i2c0[[:space:]]*,[^)]*,[[:space:]]*true[[:space:]]*,' "$flat" 'Выбор регистра завершается без STOP' 'Передайте true в аргументе nostop первой фазы чтения.'
-    expect_code 'i2c_read_timeout_us[[:space:]]*\([[:space:]]*i2c0[[:space:]]*,[^)]*,[[:space:]]*false[[:space:]]*,' "$flat" 'Чтение одного байта завершается STOP' 'Используйте i2c_read_timeout_us с nostop равным false.'
+    expect_code 'spi_write_blocking[[:space:]]*\([[:space:]]*spi0' "$code" 'Ведущий передаёт через SPI0' 'Проверьте реализацию передачи в platform.'
+    expect_code 'spi_read_blocking[[:space:]]*\([[:space:]]*spi0' "$code" 'Ведущий читает через SPI0' 'После управляющего байта считайте ответ через spi_read_blocking.'
+    expect_code '"spi_write"' "$callbacks_code" 'Есть USB-команда spi_write' 'Добавьте имя и обработчик в таблицу команд.'
+    expect_code '"spi_read"' "$callbacks_code" 'Есть USB-команда spi_read' 'Добавьте имя и обработчик в таблицу команд.'
+
+    expect_code 'gpio_pull_down[[:space:]]*\([[:space:]]*4[[:space:]]*\)' "$code" 'Свободный вход MISO подтянут к нулю' 'Добавьте gpio_pull_down(4) при настройке ведущего SPI.'
 fi
 if [ "$stage" -ge 3 ]; then
     expect_code 'multicore_launch_core1[[:space:]]*\(' "$code" 'Второе ядро запускается' 'Вызовите multicore_launch_core1 из platform.'
@@ -69,10 +89,11 @@ if [ "$stage" -eq 5 ]; then
     expect_code 'platform_spi_slave_reset[[:space:]]*\(' "$code" 'Очереди SPI подготавливаются к новому кадру' 'При снятии CS подготовьте SPI1 к следующему кадру.'
 fi
 
-if [ -f "$FW_SRC/probe.py" ]; then
-    script_match "$(python_only "$(normalize "$FW_SRC/probe.py")")" 'list_ports[.]comports'         'Присутствует скрипт опроса' 'Скрипт опроса отличается от пособия'
+probe="$FW_SRC/check-4-1-$stage.py"
+if [ -f "$probe" ]; then
+    script_match "$(python_only "$(normalize "$probe")")" 'list_ports[.]comports' 'Присутствует скрипт опроса' 'Скрипт опроса отличается от пособия'
 elif [ "$stage" -ne 3 ]; then
-    script_warn 'Нет probe.py'
+    script_warn "Нет ${probe##*/}"
 fi
 
 build_project "$FW_SRC"
@@ -107,11 +128,53 @@ expect_exchange() {
 }
 
 log="$FW_SRC/device-4-1-$stage.log"
-if [ "$stage" -eq 1 ] && [ ! -f "$log" ]; then
-    warn 'Лог SPI с BME280 отсутствует. С четырёхконтактным модулем это допустимо.'
-elif [ "$stage" -ne 3 ] && device_log "$log" "$CHECKS_TASK"; then
-    if [ "$stage" -eq 1 ]; then
-        expect_exchange 'spi_read 0x00 0xD0' 'spi: cs 0x00 command 0xD0 value 0x60' 'ID BME280 прочитан по SPI'
+if [ "$stage" -ne 3 ] && device_log "$log" "$CHECKS_TASK"; then
+    expect_code '^проект: 411-i2c-spi[[:space:]]*$' "$DEVICE_LOG" 'Лог снят для проекта 411-i2c-spi' 'Переснимите лог скриптом этого задания.'
+    help_step="$(awk -v stage="$stage" '
+        {
+            line = $0
+            gsub(/[ \t]+/, " ", line)
+            sub(/^ /, "", line)
+            sub(/ $/, "", line)
+            if (line ~ /^[0-9.]+ --> /) {
+                step++
+                sent = line + 0
+                in_help = line ~ /^[0-9.]+ --> help$/
+                heading = i2c_write = i2c_read = spi_write = spi_read = 0
+            } else if (in_help && line ~ /^[0-9.]+ <-- / &&
+                       line + 0 >= sent && line + 0 - sent <= 2) {
+                sub(/^[0-9.]+ <-- /, "", line)
+                if (line == "help list of commands") heading = 1
+                if (line == "i2c_write_reg <address> <register> <value>") i2c_write = 1
+                if (line == "i2c_read_reg <address> <register>") i2c_read = 1
+                if (line == "spi_write <cs> <command> <value>") spi_write = 1
+                if (line == "spi_read <cs> <command> [pause_us]") spi_read = 1
+                if (heading && i2c_write && i2c_read && (stage == 1 || (spi_write && spi_read))) {
+                    print step
+                    exit
+                }
+            }
+        }' "$DEVICE_LOG")"
+    if [ -n "$help_step" ]; then
+        ok 'USB-справка содержит команды этой вехи'
+        last_step="$help_step"
+    else
+        fail 'В логе нет полной USB-справки'
+        note 'Проверьте таблицу команд и переснимите лог скриптом этого задания.'
+    fi
+    if [ "$stage" -eq 2 ]; then
+        if grep -Eq '^режим SPI: без датчика[[:space:]]*$' "$DEVICE_LOG"; then
+            before_spi="$last_step"
+            expect_exchange 'spi_read 0x00 0xD0' 'spi: cs 0x00 command 0xD0 value 0x00' 'Без датчика ведущий прочитал нулевой байт'
+            if [ "$last_step" -gt "$before_spi" ]; then
+                warn 'SPI проверен без датчика. Обмен с ведомым проверяется в 4.1.5.'
+            fi
+        elif grep -Eq '^режим SPI: BME280[[:space:]]*$' "$DEVICE_LOG"; then
+            expect_exchange 'spi_read 0x00 0xD0' 'spi: cs 0x00 command 0xD0 value 0x60' 'ID BME280 прочитан по SPI'
+        else
+            fail 'В логе не указан режим проверки SPI'
+            note 'Запустите check-4-1-2.py. Для четырёхконтактного модуля добавьте --without-sensor.'
+        fi
     else
         for address in 0x76 0x77; do
             if grep -Eq -- "-->[[:space:]]+i2c_read_reg[[:space:]]+$address[[:space:]]+0xD0([[:space:]]|$)" "$DEVICE_LOG"; then

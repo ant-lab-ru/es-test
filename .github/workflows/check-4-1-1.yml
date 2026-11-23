@@ -1,4 +1,4 @@
-name: Проверка 4.1.1 Ведущий SPI
+name: Проверка 4.1.1 Ведущий I²C
 
 on:
   workflow_call:
@@ -7,7 +7,7 @@ on:
         description: Папка проекта в репозитории обучающегося
         required: false
         type: string
-        default: "411-spi-i2c"
+        default: "411-i2c-spi"
       lms_url:
         description: Приёмник результатов на платформе; пустой — отправка выключена
         required: false
@@ -20,7 +20,7 @@ on:
 
 jobs:
   check:
-    name: Ведущий SPI
+    name: Ведущий I²C
     runs-on: ubuntu-latest
     steps:
       - name: Репозиторий обучающегося

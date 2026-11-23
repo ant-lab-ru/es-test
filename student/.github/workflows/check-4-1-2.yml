@@ -1,9 +1,9 @@
-name: 4.1.2 Ведущий I²C
+name: 4.1.2 Ведущий SPI
 
 on:
   push:
     paths:
-      - '411-spi-i2c/**'
+      - '411-i2c-spi/**'
       - 'libs/**'
       - '.github/workflows/check-4-1-2.yml'
   workflow_dispatch:
